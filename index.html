@@ -19,6 +19,11 @@
       50% { background: linear-gradient(135deg, #facc15 0%, #ef4444 50%, #ec4899 100%); transform: scale(1.01); }
     }
     .neon-alert-card { animation: highVisFlash 0.85s infinite ease-in-out; border: 4px solid #ffffff; }
+    @keyframes fullScreenPulse {
+      0%, 100% { background: linear-gradient(135deg, #dc2626 0%, #ea580c 50%, #ca8a04 100%); }
+      50% { background: linear-gradient(135deg, #7f1d1d 0%, #be123c 50%, #b91c1c 100%); }
+    }
+    .fullscreen-emergency-bg { animation: fullScreenPulse 0.9s infinite ease-in-out; }
   </style>
 </head>
 <body class="min-h-screen pb-14">
@@ -27,17 +32,53 @@
   <audio id="bgAlarmAudio" loop preload="auto"></audio>
   <audio id="keepAliveAudio" loop preload="auto"></audio>
 
-  <div class="bg-slate-950 border-b border-slate-800 text-xs py-2.5 px-4">
+  <!-- شريط الحالة العلوي -->
+  <div class="bg-slate-950 border-b border-slate-800 text-xs py-2.5 px-4 sticky top-0 z-30">
     <div class="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-2">
       <div class="flex items-center gap-2">
         <span id="connIndicator" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
         <span id="connStatusText" class="font-bold text-slate-300">جاري محاولة الاتصال...</span>
+        <span id="pollHeartbeatBadge" class="text-[10px] bg-slate-800 text-emerald-400 px-2 py-0.5 rounded-md font-mono">فحص تلقائي كل 5ث</span>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <button id="enableBgBtn" type="button" class="bg-amber-500 text-slate-950 px-3 py-1 rounded-lg font-extrabold">🔔 تفعيل عمل الصوت في الخلفية وقفل الشاشة</button>
-        <button id="installAppBtn" type="button" class="bg-emerald-600 text-white px-3 py-1 rounded-lg font-bold">📲 تثبيت التطبيق</button>
-        <button id="muteAlarmBtn" type="button" class="bg-slate-800 text-slate-200 border border-slate-700 px-3 py-1 rounded-lg font-bold">🔊 الصوت: مفعل</button>
+        <button id="enableBgBtn" type="button" class="bg-amber-500 text-slate-950 px-3 py-1 rounded-lg font-extrabold transition">
+          🔔 رادار الخلفية: مفعل (محفوظ)
+        </button>
+        <button id="installAppBtn" type="button" class="bg-emerald-600 text-white px-3 py-1 rounded-lg font-bold">
+          📲 تثبيت التطبيق
+        </button>
+        <button id="muteAlarmBtn" type="button" class="bg-slate-800 text-slate-200 border border-slate-700 px-3 py-1 rounded-lg font-bold">
+          🔊 الصوت: مفعل
+        </button>
       </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- نافذة الطوارئ المنبثقة بملء الشاشة (تفتح تلقائياً عند وصول أي طلب جديد) -->
+  <!-- ========================================================================= -->
+  <div id="fullScreenAlertModal" class="fixed inset-0 z-50 hidden flex-col justify-between p-4 sm:p-8 fullscreen-emergency-bg text-white overflow-y-auto">
+    <div class="max-w-3xl mx-auto w-full flex items-center justify-between border-b border-white/30 pb-4">
+      <div class="flex items-center gap-3">
+        <span class="text-3xl sm:text-4xl animate-bounce">🚨</span>
+        <div>
+          <h2 class="text-xl sm:text-3xl font-black tracking-wide">إنذار عطل عاجل وارد الآن!</h2>
+          <p class="text-xs sm:text-sm text-yellow-200 font-bold">يرجى الاستجابة الفورية قبل تحول الطلب إلى طلب مهمل</p>
+        </div>
+      </div>
+      <button id="minimizeFullScreenBtn" type="button" class="bg-black/40 hover:bg-black/60 text-white text-xs font-bold px-3.5 py-2 rounded-xl border border-white/30">
+        تصغير مؤقت ✕
+      </button>
+    </div>
+
+    <!-- محتوى الطلب العاجل بملء الشاشة -->
+    <div id="fullScreenAlertContent" class="max-w-3xl mx-auto w-full my-auto py-6"></div>
+
+    <div class="max-w-3xl mx-auto w-full border-t border-white/30 pt-3 flex items-center justify-between text-xs text-yellow-100 font-bold">
+      <span>⚡ يتم التحديث والفحص تلقائياً كل 5 ثوانٍ</span>
+      <button id="muteFromFullScreenBtn" type="button" class="bg-white/20 hover:bg-white/30 text-white px-4 py-1.5 rounded-xl font-extrabold">
+        🔇 كتم صوت هذا الإنذار
+      </button>
     </div>
   </div>
 
@@ -104,7 +145,7 @@
     <!-- الشاشة الرئيسية لمقدم الخدمة -->
     <section id="providerDashboardSection" class="hidden space-y-6">
       <div class="bg-emerald-900/50 border border-emerald-700 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-2 text-xs">
-        <span>📲 اضغط مرة واحدة على <strong>"تفعيل عمل الصوت في الخلفية"</strong> بالأعلى ليظل الرادار الصوتي يعمل حتى لو أغلقت شاشة الموبايل</span>
+        <span>📲 التطبيق يفحص الطلبات الجديدة كل <strong>5 ثوانٍ</strong> حتى في الخلفية، ويفتح شاشة إنذار كاملة فور وصول أي عطل.</span>
         <button id="bannerInstallBtn" type="button" class="bg-white text-slate-900 font-extrabold px-3.5 py-1.5 rounded-xl">➕ تثبيت التطبيق</button>
       </div>
 
@@ -123,7 +164,7 @@
         </div>
       </header>
 
-      <!-- الطلبات الجديدة الواردة (تظهر لمدة دقيقة و10 ثوانٍ ثم تتحول لطلب مهمل) -->
+      <!-- الطلبات الجديدة الواردة -->
       <div class="space-y-3">
         <div class="flex items-center justify-between">
           <div>
@@ -184,6 +225,7 @@
     const ROOM_KEY = "smartline_main";
     const PROVIDER_PROFILE_KEY = "smartline_provider_profile_v2";
     const SOUND_MUTE_PREF_KEY = "smartline_provider_mute_pref_v1";
+    const BG_RADAR_PREF_KEY = "smartline_provider_bg_radar_pref_v1";
     const ALARM_DURATION_MS = 60000; // 60 ثانية صوت إنذار
     const NEGLECT_TIMEOUT_MS = 70000; // 70 ثانية (دقيقة و10 ثوانٍ) ثم يتحول لطلب مهمل
 
@@ -212,7 +254,6 @@
       }
     }
 
-    // بناء ملف WAV لصوت الإنذار + ملف WAV خفي لإبقاء التطبيق حياً في الخلفية وعند قفل الشاشة
     function buildWavDataUri(isSilentKeepAlive = false) {
       const sampleRate = 8000, seconds = 1, numSamples = sampleRate * seconds;
       const buf = new ArrayBuffer(44 + numSamples * 2), view = new DataView(buf);
@@ -224,7 +265,7 @@
       view.setUint32(40, numSamples * 2, true);
       for (let i = 0; i < numSamples; i++) {
         if (isSilentKeepAlive) {
-          view.setInt16(44 + i * 2, 1, true); // نبضة شبه صامتة تبقي قناة الصوت نشطة في الخلفية
+          view.setInt16(44 + i * 2, 1, true);
         } else {
           const freq = i < numSamples / 2 ? 920 : 1380;
           const val = Math.sin(2 * Math.PI * freq * (i / sampleRate));
@@ -249,34 +290,46 @@
     };
 
     let providerProfile = Storage.get(PROVIDER_PROFILE_KEY, null);
-    // استرجاع ضبط الصوت المحفوظ (كتم أو تشغيل) من الذاكرة المحلية
+    // حفظ واسترجاع حالة كتم الصوت وحالة رادار الخلفية بشكل دائم
     let isMuted = Storage.get(SOUND_MUTE_PREF_KEY, false) === true;
+    let isBgRadarEnabled = Storage.get(BG_RADAR_PREF_KEY, true) !== false;
+
     let sharedState = { tickets: {}, providers: {} };
     let firebaseRootRef = null;
     let isEditingProvider = false;
     let manuallySilencedIds = new Set();
+    let minimizedFullScreenIds = new Set();
     let notifiedIds = new Set();
 
-    function updateMuteButtonUI() {
-      const btn = document.getElementById('muteAlarmBtn');
-      if (!btn) return;
-      btn.textContent = isMuted ? '🔇 الصوت: مكتوم (محفوظ)' : '🔊 الصوت: مفعل (محفوظ)';
-      btn.className = isMuted
-        ? 'bg-rose-900/60 text-rose-200 border border-rose-700 px-3 py-1 rounded-lg font-bold'
-        : 'bg-slate-800 text-emerald-300 border border-slate-700 px-3 py-1 rounded-lg font-bold';
+    function updateTopButtonsUI() {
+      const muteBtn = document.getElementById('muteAlarmBtn');
+      if (muteBtn) {
+        muteBtn.textContent = isMuted ? '🔇 الصوت: مكتوم (محفوظ)' : '🔊 الصوت: مفعل (محفوظ)';
+        muteBtn.className = isMuted
+          ? 'bg-rose-900/60 text-rose-200 border border-rose-700 px-3 py-1 rounded-lg font-bold'
+          : 'bg-slate-800 text-emerald-300 border border-slate-700 px-3 py-1 rounded-lg font-bold';
+      }
+
+      const radarBtn = document.getElementById('enableBgBtn');
+      if (radarBtn) {
+        radarBtn.textContent = isBgRadarEnabled ? '✅ رادار الخلفية: نشط (محفوظ)' : '🔕 رادار الخلفية: متوقف (محفوظ)';
+        radarBtn.className = isBgRadarEnabled
+          ? 'bg-emerald-500 text-slate-950 px-3 py-1 rounded-lg font-extrabold transition'
+          : 'bg-slate-800 text-slate-400 border border-slate-700 px-3 py-1 rounded-lg font-bold transition';
+      }
     }
 
     function normalizePhone(p) {
       return String(p || '').trim().replace(/\s+/g, '').replace(/[.#$\[\]]/g, '_');
     }
 
-    async function enableBackgroundAlert() {
+    async function activateBgRadarStreams() {
+      if (!isBgRadarEnabled) {
+        keepAliveAudio.pause();
+        return;
+      }
       try {
-        // تشغيل قناة البقاء حياً في الخلفية حتى لا يغلق الموبايل الصوت عند قفل الشاشة
         await keepAliveAudio.play();
-        await bgAudio.play();
-        bgAudio.pause();
-        bgAudio.currentTime = 0;
       } catch (e) {}
 
       if ('mediaSession' in navigator) {
@@ -284,35 +337,43 @@
           navigator.mediaSession.metadata = new MediaMetadata({
             title: 'رادار بلاغات الصيانة نشط',
             artist: 'SmartLine Alert',
-            album: 'استقبال البلاغات في الخلفية'
+            album: 'مراقبة الأعطال في الخلفية'
           });
         } catch (e) {}
       }
 
-      if ('Notification' in window && Notification.permission !== 'granted') {
+      if ('Notification' in window && Notification.permission === 'default') {
         try { await Notification.requestPermission(); } catch (e) {}
       }
       if ('wakeLock' in navigator) {
         try { await navigator.wakeLock.request('screen'); } catch (e) {}
       }
-      document.getElementById('enableBgBtn').textContent = '✅ رادار الصوت في الخلفية نشط';
-      showToast('✅ تم تفعيل عمل الصوت والإشعارات في الخلفية وعند غلق الشاشة');
     }
 
-    function triggerScreenNotification(t) {
-      if (notifiedIds.has(t.id)) return;
-      notifiedIds.add(t.id);
+    // إظهار التطبيق فوق أي تطبيق شغال عبر إشعار نظام عالي الأولوية + استدعاء التركيز + نافذة ملء الشاشة
+    function bringAppToFrontAndNotify(t) {
+      try { window.focus(); } catch (e) {}
       if ('vibrate' in navigator) {
-        try { navigator.vibrate([600, 200, 600, 200, 800]); } catch (e) {}
+        try { navigator.vibrate([700, 200, 700, 200, 900]); } catch (e) {}
       }
-      if ('Notification' in window && Notification.permission === 'granted') {
-        try {
-          const n = new Notification(`🚨 طلب عطل جديد (${t.targetDept}) - ${t.ticketCode}`, {
-            body: `المكان: ${t.clientLine} - ${t.clientFactory} | العميل: ${t.clientName} | المشكلة: ${t.title} (${t.machine})`,
-            requireInteraction: true
-          });
-          n.onclick = () => { window.focus(); n.close(); };
-        } catch (e) {}
+      if (!notifiedIds.has(t.id)) {
+        notifiedIds.add(t.id);
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try {
+            const n = new Notification(`🚨 عطل عاجل (${t.targetDept}) - ${t.ticketCode}`, {
+              body: `📍 المكان: ${t.clientLine} (${t.clientFactory})\n👤 العميل: ${t.clientName}\n⚠️ المشكلة: ${t.title} — ${t.machine}`,
+              tag: 'urgent_ticket_' + t.id,
+              renotify: true,
+              requireInteraction: true
+            });
+            n.onclick = () => {
+              try { window.focus(); } catch (e) {}
+              minimizedFullScreenIds.delete(t.id);
+              renderFullScreenEmergencyOverlay();
+              n.close();
+            };
+          } catch (e) {}
+        }
       }
     }
 
@@ -377,12 +438,60 @@
             firebaseRootRef.child('tickets/' + t.id).update({
               status: 'neglected',
               statusLabel: 'طلب مهمل',
-              neglectedTimeStr: new Date().toLocaleString('ar-EG')
+              neglectedTimeStr: new Date().toLocaleString('ar-EG'),
+              archivedByClient: true
             });
             pushCloudEvent('TICKET_NEGLECTED', `تحول الطلب (${t.ticketCode}) لقسم ${t.targetDept} إلى "طلب مهمل" لعدم القبول خلال دقيقة و10 ثوانٍ`);
           }
         }
       });
+    }
+
+    // ============================================================================
+    // فحص نشط كل 5 ثوانٍ من قاعدة البيانات (يعمل عبر Web Worker حتى في الخلفية)
+    // ============================================================================
+    async function pollDatabaseEvery5Seconds() {
+      const badge = document.getElementById('pollHeartbeatBadge');
+      try {
+        const res = await fetch(`${FIREBASE_DB_URL}smartline_system/${ROOM_KEY}.json?t=${Date.now()}`, {
+          cache: 'no-store'
+        });
+        if (res.ok) {
+          const val = await res.json();
+          if (val) {
+            sharedState = { tickets: val.tickets || {}, providers: val.providers || {} };
+            checkAndMarkNeglectedTickets();
+            evaluateAndRender();
+          }
+          if (badge) {
+            const nowTime = new Date().toLocaleTimeString('ar-EG');
+            badge.textContent = `⚡ آخر فحص: ${nowTime}`;
+          }
+        }
+      } catch (e) {
+        if (firebaseRootRef) {
+          try {
+            const snap = await firebaseRootRef.get();
+            const val = snap.val() || {};
+            sharedState = { tickets: val.tickets || {}, providers: val.providers || {} };
+            evaluateAndRender();
+          } catch (err) {}
+        }
+      }
+    }
+
+    function startBackground5SecondWorker() {
+      // استخدام Web Worker لأن المتصفح لا يوقفه عندما يكون التطبيق في الخلفية
+      try {
+        const workerCode = `setInterval(() => postMessage('TICK_5S'), 5000);`;
+        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        const worker = new Worker(URL.createObjectURL(blob));
+        worker.onmessage = () => {
+          pollDatabaseEvery5Seconds();
+        };
+      } catch (e) {
+        setInterval(pollDatabaseEvery5Seconds, 5000);
+      }
     }
 
     function initConnection() {
@@ -411,32 +520,108 @@
         evaluateAndRender();
       });
 
+      startBackground5SecondWorker();
+
+      // مؤقت تحديث العدادات التنازلية كل ثانية
       setInterval(() => {
         checkAndMarkNeglectedTickets();
         if (!providerProfile) return;
         const pendingDept = Object.values(sharedState.tickets || {}).filter(
           t => t.targetDept === providerProfile.specialty && t.status === 'pending' && !hasProviderRejected(t)
         );
-        pendingDept.forEach(t => triggerScreenNotification(t));
+        if (pendingDept.length > 0) {
+          pendingDept.forEach(t => bringAppToFrontAndNotify(t));
+        }
         if (pendingDept.some(t => isTicketRinging(t))) startAlarm(); else stopAlarm();
+
         pendingDept.forEach(t => {
-          const b = document.getElementById(`timer_${t.id}`);
-          const c = document.getElementById(`card_${t.id}`);
           const ringing = isTicketRinging(t);
           const remAlarm = getRemainingAlarmSec(t);
           const remNeglect = getRemainingNeglectSec(t);
-          if (b) {
-            b.textContent = ringing
-              ? `🔊 يرن (${remAlarm} ث للصامت | باقي ${remNeglect} ث للإهمال)`
-              : `🔕 صامت (يتحول لطلب مهمل خلال ${remNeglect} ثانية)`;
-          }
-          if (c) {
-            c.className = ringing
-              ? 'neon-alert-card rounded-2xl p-5 text-slate-950 shadow-2xl'
-              : 'rounded-2xl p-5 bg-amber-400 text-slate-950 border-4 border-amber-200 shadow-xl';
-          }
+          const labelText = ringing
+            ? `🔊 يرن الآن (${remAlarm} ث للصامت | باقي ${remNeglect} ث للإهمال)`
+            : `🔕 صامت (يتحول لطلب مهمل خلال ${remNeglect} ثانية)`;
+
+          const b = document.getElementById(`timer_${t.id}`);
+          if (b) b.textContent = labelText;
+
+          const fb = document.getElementById(`fs_timer_${t.id}`);
+          if (fb) fb.textContent = labelText;
         });
       }, 1000);
+    }
+
+    // عرض نافذة الطوارئ المنبثقة بملء الشاشة لأحدث طلب وارد
+    function renderFullScreenEmergencyOverlay() {
+      const modal = document.getElementById('fullScreenAlertModal');
+      const content = document.getElementById('fullScreenAlertContent');
+      if (!providerProfile || !modal || !content) return;
+
+      const urgentTickets = Object.values(sharedState.tickets || {})
+        .filter(t => t.targetDept === providerProfile.specialty && t.status === 'pending' && !hasProviderRejected(t) && !minimizedFullScreenIds.has(t.id))
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+      if (urgentTickets.length === 0) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        return;
+      }
+
+      const t = urgentTickets[0];
+      const remAlarm = getRemainingAlarmSec(t);
+      const remNeglect = getRemainingNeglectSec(t);
+      const ringing = isTicketRinging(t);
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+
+      content.innerHTML = `
+        <div class="bg-white text-slate-950 rounded-3xl p-6 sm:p-8 shadow-2xl border-4 border-yellow-300 space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+            <span class="bg-slate-950 text-yellow-300 font-mono font-black text-base sm:text-xl px-4 py-1.5 rounded-xl">
+              🚨 ${t.ticketCode} — قسم ${t.targetDept}
+            </span>
+            <span id="fs_timer_${t.id}" class="bg-rose-600 text-white font-extrabold text-xs sm:text-sm px-4 py-1.5 rounded-xl animate-pulse">
+              ${ringing ? `🔊 يرن الآن (${remAlarm} ث للصامت | باقي ${remNeglect} ث للإهمال)` : `🔕 صامت (يتحول لطلب مهمل خلال ${remNeglect} ثانية)`}
+            </span>
+          </div>
+
+          <div class="bg-slate-900 text-white p-4 sm:p-5 rounded-2xl">
+            <span class="text-yellow-300 text-xs sm:text-sm font-black block mb-1">📍 مكان العطل (الخط / القسم / الإدارة / المصنع):</span>
+            <p class="text-lg sm:text-2xl font-black">${t.clientLine} — ${t.clientDept} — ${t.clientFactory}</p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="bg-slate-100 p-4 rounded-2xl border border-slate-200">
+              <span class="text-xs font-bold text-slate-500 block">👤 اسم العميل:</span>
+              <strong class="text-base sm:text-lg font-black text-slate-900">${t.clientName}</strong>
+              <span class="block text-xs text-slate-600 mt-0.5">📞 ${t.clientPhone || '--'}</span>
+            </div>
+            <div class="bg-rose-50 p-4 rounded-2xl border border-rose-200">
+              <span class="text-xs font-bold text-rose-600 block">⚠️ عنوان المشكلة:</span>
+              <strong class="text-base sm:text-lg font-black text-rose-800">${t.title}</strong>
+            </div>
+            <div class="bg-slate-100 p-4 rounded-2xl border border-slate-200">
+              <span class="text-xs font-bold text-slate-500 block">⚙️ الجهاز / المعدة:</span>
+              <strong class="text-base sm:text-lg font-black text-slate-900">${t.machine}</strong>
+            </div>
+          </div>
+
+          <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-sm">
+            <strong class="text-slate-700">📝 الوصف التفصيلي:</strong>
+            <p class="text-slate-900 font-bold mt-1">${t.description || '--'}</p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <button type="button" data-action="accept" data-id="${t.id}" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-lg sm:text-xl py-4 px-6 rounded-2xl shadow-xl border-2 border-emerald-300 transition transform hover:scale-[1.01]">
+              ✅ اقبل الطلب الآن
+            </button>
+            <button type="button" data-action="reject" data-id="${t.id}" class="bg-slate-900 hover:bg-rose-950 text-white font-extrabold text-base sm:text-lg py-4 px-6 rounded-2xl shadow-lg transition">
+              ❌ ارفض (يظل متاحاً للزملاء)
+            </button>
+          </div>
+        </div>
+      `;
     }
 
     function setPAuthTab(mode) {
@@ -466,6 +651,7 @@
       if (!providerProfile || editing) {
         authSec.classList.remove('hidden'); dashSec.classList.add('hidden');
         stopAlarm();
+        document.getElementById('fullScreenAlertModal').classList.add('hidden');
         if (providerProfile && editing) {
           document.getElementById('pAuthTitle').textContent = 'تعديل بيانات مقدم الخدمة';
           tabsBar.classList.add('hidden');
@@ -507,6 +693,9 @@
 
       if (pending.some(t => isTicketRinging(t))) startAlarm(); else stopAlarm();
 
+      // إظهار نافذة ملء الشاشة المنبثقة تلقائياً عند وجود طلب جديد
+      renderFullScreenEmergencyOverlay();
+
       document.getElementById('incomingCountBadge').textContent = pending.length;
       const incEl = document.getElementById('incomingAlertsContainer');
       if (pending.length === 0) {
@@ -523,7 +712,7 @@
                   <div class="flex flex-wrap items-center gap-2">
                     <span class="bg-slate-950 text-yellow-300 font-mono font-black text-xs px-3 py-1 rounded-lg">🚨 ${t.ticketCode} (${t.targetDept})</span>
                     <span id="timer_${t.id}" class="bg-rose-700 text-white text-xs font-extrabold px-3 py-1 rounded-lg">
-                      ${ringing ? `🔊 يرن (${remAlarm} ث للصامت | باقي ${remNeglect} ث للإهمال)` : `🔕 صامت (يتحول لطلب مهمل خلال ${remNeglect} ثانية)`}
+                      ${ringing ? `🔊 يرن الآن (${remAlarm} ث للصامت | باقي ${remNeglect} ث للإهمال)` : `🔕 صامت (يتحول لطلب مهمل خلال ${remNeglect} ثانية)`}
                     </span>
                   </div>
                   <div class="bg-slate-950 text-white px-3.5 py-2 rounded-xl text-sm font-black">📍 المكان: ${t.clientLine} — ${t.clientDept} — ${t.clientFactory}</div>
@@ -585,14 +774,52 @@
         `).join('');
     }
 
+    function handleIncomingAcceptReject(e) {
+      const btn = e.target.closest('[data-action]');
+      if (!btn || !providerProfile) return;
+      const id = btn.getAttribute('data-id');
+      const act = btn.getAttribute('data-action');
+      const t = sharedState.tickets[id];
+      if (!t) return;
+
+      if (act === 'accept') {
+        if (t.status !== 'pending') { showToast('⚠️ لم يعد الطلب متاحاً'); return; }
+        firebaseRootRef.child('tickets/' + id).update({
+          status: 'open', statusLabel: 'مفتوحة',
+          providerId: providerProfile.id, providerName: providerProfile.name, providerPhone: providerProfile.phone,
+          acceptedAt: new Date().toLocaleString('ar-EG')
+        });
+        const pRec = (sharedState.providers && sharedState.providers[providerProfile.id]) || {};
+        const accList = Array.isArray(pRec.acceptedTickets) ? pRec.acceptedTickets : [];
+        if (!accList.includes(t.ticketCode)) accList.push(t.ticketCode);
+        firebaseRootRef.child('providers/' + providerProfile.id + '/acceptedTickets').set(accList);
+
+        pushCloudEvent('TICKET_ACCEPTED', `قبل الفني "${providerProfile.name}" الطلب (${t.ticketCode}) واختفى من عند الباقين`);
+        showToast(`✅ تم استلام الطلب (${t.ticketCode})`);
+      } else if (act === 'reject') {
+        firebaseRootRef.child('tickets/' + id + '/rejectedBy/' + providerProfile.id).set({
+          name: providerProfile.name,
+          phone: providerProfile.phone,
+          time: new Date().toLocaleString('ar-EG')
+        });
+        const pRec = (sharedState.providers && sharedState.providers[providerProfile.id]) || {};
+        const rejList = Array.isArray(pRec.rejectedTickets) ? pRec.rejectedTickets : [];
+        if (!rejList.includes(t.ticketCode)) rejList.push(t.ticketCode);
+        firebaseRootRef.child('providers/' + providerProfile.id + '/rejectedTickets').set(rejList);
+
+        pushCloudEvent('TICKET_REJECTED', `اعتذر الفني "${providerProfile.name}" عن الطلب (${t.ticketCode}) وظل متاحاً لباقي الفنيين`);
+        showToast(`تم إخفاء الطلب من شاشتك وظل مفتوحاً لباقي الزملاء`);
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-      updateMuteButtonUI();
+      updateTopButtonsUI();
       initConnection();
       updateProviderView(false);
 
-      // تفعيل قناة الصوت في الخلفية تلقائياً مع أول لمسة للشاشة
+      // استئناف عمل رادار الخلفية المحفوظ تلقائياً بمجرد لمس الشاشة
       document.body.addEventListener('click', () => {
-        keepAliveAudio.play().catch(() => {});
+        if (isBgRadarEnabled) activateBgRadarStreams();
       }, { once: true });
 
       document.getElementById('pTabRegBtn').addEventListener('click', () => setPAuthTab('register'));
@@ -600,7 +827,7 @@
 
       document.getElementById('providerProfileForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        enableBackgroundAlert();
+        if (isBgRadarEnabled) activateBgRadarStreams();
         const spec = document.querySelector('input[name="providerSpecialty"]:checked');
         const phone = normalizePhone(document.getElementById('providerPhone').value);
         const password = document.getElementById('providerPassword').value;
@@ -628,7 +855,7 @@
 
       document.getElementById('providerLoginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        enableBackgroundAlert();
+        if (isBgRadarEnabled) activateBgRadarStreams();
         const phone = normalizePhone(document.getElementById('pLoginPhone').value);
         const pass = document.getElementById('pLoginPass').value;
         const pid = 'prov_' + phone;
@@ -648,7 +875,15 @@
         showToast('✅ تم تسجيل الدخول بنجاح');
       });
 
-      document.getElementById('enableBgBtn').addEventListener('click', enableBackgroundAlert);
+      // حفظ حالة رادار الصوت في الخلفية بشكل دائم في الذاكرة المحلية
+      document.getElementById('enableBgBtn').addEventListener('click', () => {
+        isBgRadarEnabled = !isBgRadarEnabled;
+        Storage.set(BG_RADAR_PREF_KEY, isBgRadarEnabled);
+        updateTopButtonsUI();
+        activateBgRadarStreams();
+        showToast(isBgRadarEnabled ? '✅ تم تفعيل وحفظ رادار الخلفية' : '🔕 تم إيقاف رادار الخلفية وحفظ الضبط');
+      });
+
       document.getElementById('installAppBtn').addEventListener('click', triggerInstallApp);
       document.getElementById('bannerInstallBtn').addEventListener('click', triggerInstallApp);
       document.getElementById('closeScModal').addEventListener('click', () => document.getElementById('shortcutModal').classList.add('hidden'));
@@ -664,7 +899,7 @@
       document.getElementById('muteAlarmBtn').addEventListener('click', () => {
         isMuted = !isMuted;
         Storage.set(SOUND_MUTE_PREF_KEY, isMuted);
-        updateMuteButtonUI();
+        updateTopButtonsUI();
         if (isMuted) stopAlarm();
       });
 
@@ -673,43 +908,18 @@
         stopAlarm();
       });
 
-      document.getElementById('incomingAlertsContainer').addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-action]');
-        if (!btn || !providerProfile) return;
-        const id = btn.getAttribute('data-id');
-        const act = btn.getAttribute('data-action');
-        const t = sharedState.tickets[id];
-        if (!t) return;
-
-        if (act === 'accept') {
-          if (t.status !== 'pending') { showToast('⚠️ لم يعد الطلب متاحاً'); return; }
-          firebaseRootRef.child('tickets/' + id).update({
-            status: 'open', statusLabel: 'مفتوحة',
-            providerId: providerProfile.id, providerName: providerProfile.name, providerPhone: providerProfile.phone,
-            acceptedAt: new Date().toLocaleString('ar-EG')
-          });
-          const pRec = (sharedState.providers && sharedState.providers[providerProfile.id]) || {};
-          const accList = Array.isArray(pRec.acceptedTickets) ? pRec.acceptedTickets : [];
-          if (!accList.includes(t.ticketCode)) accList.push(t.ticketCode);
-          firebaseRootRef.child('providers/' + providerProfile.id + '/acceptedTickets').set(accList);
-
-          pushCloudEvent('TICKET_ACCEPTED', `قبل الفني "${providerProfile.name}" الطلب (${t.ticketCode}) واختفى من عند الباقين`);
-          showToast(`✅ تم استلام الطلب (${t.ticketCode})`);
-        } else if (act === 'reject') {
-          firebaseRootRef.child('tickets/' + id + '/rejectedBy/' + providerProfile.id).set({
-            name: providerProfile.name,
-            phone: providerProfile.phone,
-            time: new Date().toLocaleString('ar-EG')
-          });
-          const pRec = (sharedState.providers && sharedState.providers[providerProfile.id]) || {};
-          const rejList = Array.isArray(pRec.rejectedTickets) ? pRec.rejectedTickets : [];
-          if (!rejList.includes(t.ticketCode)) rejList.push(t.ticketCode);
-          firebaseRootRef.child('providers/' + providerProfile.id + '/rejectedTickets').set(rejList);
-
-          pushCloudEvent('TICKET_REJECTED', `اعتذر الفني "${providerProfile.name}" عن الطلب (${t.ticketCode}) وظل متاحاً لباقي الفنيين`);
-          showToast(`تم إخفاء الطلب من شاشتك وظل مفتوحاً لباقي الزملاء`);
-        }
+      document.getElementById('muteFromFullScreenBtn').addEventListener('click', () => {
+        Object.values(sharedState.tickets || {}).forEach(t => { if (t.status === 'pending') manuallySilencedIds.add(t.id); });
+        stopAlarm();
       });
+
+      document.getElementById('minimizeFullScreenBtn').addEventListener('click', () => {
+        Object.values(sharedState.tickets || {}).forEach(t => { if (t.status === 'pending') minimizedFullScreenIds.add(t.id); });
+        renderFullScreenEmergencyOverlay();
+      });
+
+      document.getElementById('incomingAlertsContainer').addEventListener('click', handleIncomingAcceptReject);
+      document.getElementById('fullScreenAlertContent').addEventListener('click', handleIncomingAcceptReject);
 
       document.getElementById('activeTasksContainer').addEventListener('click', (e) => {
         const btn = e.target.closest('[data-action]');
