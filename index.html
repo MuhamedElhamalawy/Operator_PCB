@@ -3,319 +3,442 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#059669" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>تطبيق مقدم الخدمة | SmartLine</title>
+  <title>تطبيق مقدم الخدمة (Tooling / Process) | SmartLine Alert</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
-    body{font-family:'Cairo',sans-serif;background:#0f172a;color:#f8fafc}
-    @keyframes flashNeon{0%,100%{background:linear-gradient(135deg,#ff0055,#ff6600);transform:scale(1)}50%{background:linear-gradient(135deg,#facc15,#ef4444);transform:scale(1.01)}}
-    .neon-card{animation:flashNeon 0.8s infinite;border:3px solid #fff}
+    body { font-family: 'Cairo', sans-serif; background-color: #0f172a; color: #f8fafc; }
+    @keyframes highVisFlash {
+      0%, 100% { background: linear-gradient(135deg, #ff0055 0%, #ff6600 50%, #ffcc00 100%); transform: scale(1); }
+      50% { background: linear-gradient(135deg, #facc15 0%, #ef4444 50%, #ec4899 100%); transform: scale(1.01); }
+    }
+    .neon-alert-card { animation: highVisFlash 0.85s infinite ease-in-out; border: 4px solid #ffffff; }
   </style>
 </head>
-<body class="min-h-screen pb-12">
-
-  <!-- عنصر صوت حقيقي لضمان استمرار رنين الإنذار حتى لو المتصفح في الخلفية -->
-  <audio id="bgAlarmAudio" loop preload="auto"></audio>
+<body class="min-h-screen pb-14">
 
   <div class="bg-slate-950 border-b border-slate-800 text-xs py-2.5 px-4">
     <div class="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-2">
-      <span id="connStatus" class="font-bold text-emerald-400">جاري الاتصال ...</span>
-      <div class="flex flex-wrap gap-2">
-        <button id="enableBgAlertBtn" type="button" class="bg-amber-500 text-slate-950 font-extrabold px-3 py-1 rounded-lg">🔔 تفعيل إنذار وإشعارات الخلفية</button>
-        <button id="scTopBtn" type="button" class="bg-emerald-600 text-white font-bold px-3 py-1 rounded-lg">📲 إضافة أيقونة للشاشة</button>
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="connStatusText" class="font-bold text-slate-300">جاري الاتصال التلقائي بـ Firebase...</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="testSirenBtn" type="button" class="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-lg font-bold">🔊 اختبار الصوت</button>
+        <button id="muteAlarmBtn" type="button" class="bg-slate-800 text-slate-200 border border-slate-700 px-3 py-1 rounded-lg font-bold">🔔 الصوت: مفعل (60 ثانية ثم صامت)</button>
       </div>
     </div>
   </div>
 
-  <div class="max-w-5xl mx-auto px-4 pt-5">
-    <!-- التسجيل -->
-    <section id="pRegSec" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-lg mx-auto space-y-4">
-      <h1 class="text-xl font-extrabold text-emerald-400">تسجيل بيانات مقدم الخدمة</h1>
-      <form id="pForm" class="space-y-4">
-        <input id="pName" type="text" required placeholder="اسم مقدم الخدمة *" class="w-full rounded-xl bg-slate-800 border border-slate-700 p-3 text-sm text-white" />
-        <input id="pPhone" type="tel" required placeholder="رقم التليفون *" class="w-full rounded-xl bg-slate-800 border border-slate-700 p-3 text-sm text-white" />
-        <div class="grid grid-cols-2 gap-3">
-          <label class="cursor-pointer"><input type="radio" name="pSpec" value="Tooling" checked class="peer sr-only"/><div class="p-3 rounded-xl border-2 border-slate-700 bg-slate-800 text-center peer-checked:border-orange-500 font-extrabold">🔧 Tooling</div></label>
-          <label class="cursor-pointer"><input type="radio" name="pSpec" value="Process" class="peer sr-only"/><div class="p-3 rounded-xl border-2 border-slate-700 bg-slate-800 text-center peer-checked:border-purple-500 font-extrabold">⚙️ Process</div></label>
+  <div class="max-w-5xl mx-auto px-4 pt-6">
+    <!-- تسجيل مقدم الخدمة -->
+    <section id="providerRegSection" class="bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 overflow-hidden max-w-lg mx-auto mt-6">
+      <div class="bg-gradient-to-l from-emerald-600 to-teal-700 p-6 text-white">
+        <h1 class="text-2xl font-extrabold">تسجيل بيانات مقدم الخدمة</h1>
+        <p class="text-emerald-100 text-sm mt-1">تصل إليك فقط طلبات القسم الذي تختاره هنا</p>
+      </div>
+      <form id="providerProfileForm" class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-bold text-slate-200 mb-1">اسم مقدم الخدمة *</label>
+          <input id="providerName" type="text" required placeholder="مثال: م. كريم حسن" class="w-full rounded-xl bg-slate-800 border border-slate-700 text-white px-4 py-3 text-sm" />
         </div>
-        <button type="submit" class="w-full bg-emerald-600 text-white font-extrabold py-3 rounded-xl">حفظ وتفعيل استقبال البلاغات</button>
+        <div>
+          <label class="block text-sm font-bold text-slate-200 mb-1">رقم التليفون *</label>
+          <input id="providerPhone" type="tel" required placeholder="مثال: 01123456789" class="w-full rounded-xl bg-slate-800 border border-slate-700 text-white px-4 py-3 text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-bold text-slate-200 mb-2">التخصص (Process / Tooling) *</label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="cursor-pointer">
+              <input type="radio" name="providerSpecialty" value="Tooling" checked class="peer sr-only" />
+              <div class="rounded-xl border-2 border-slate-700 bg-slate-800 p-4 text-center peer-checked:border-orange-500 peer-checked:bg-orange-500/20 font-extrabold">🔧 Tooling</div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="providerSpecialty" value="Process" class="peer sr-only" />
+              <div class="rounded-xl border-2 border-slate-700 bg-slate-800 p-4 text-center peer-checked:border-purple-500 peer-checked:bg-purple-500/20 font-extrabold">⚙️ Process</div>
+            </label>
+          </div>
+        </div>
+        <div class="pt-2 flex gap-3">
+          <button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3 px-6 rounded-xl">حفظ والدخول</button>
+          <button type="button" id="cancelProviderEditBtn" class="hidden bg-slate-800 text-slate-300 font-bold py-3 px-5 rounded-xl">إلغاء</button>
+        </div>
       </form>
     </section>
 
-    <!-- لوحة مقدم الخدمة -->
-    <section id="pMainSec" class="hidden space-y-5">
-      <div class="bg-emerald-800/60 border border-emerald-600 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-2 text-xs">
-        <span>📲 <strong>ضع أيقونة التطبيق على الشاشة الرئيسية</strong> وفعّل إشعارات الخلفية ليصلك صوت الإنذار فوراً حتى لو الشاشة مغلقة.</span>
-        <button id="scBannerBtn" type="button" class="bg-white text-slate-900 font-extrabold px-3.5 py-1.5 rounded-xl">➕ تثبيت الأيقونة</button>
-      </div>
-
-      <header class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+    <!-- الشاشة الرئيسية لمقدم الخدمة -->
+    <section id="providerDashboardSection" class="hidden space-y-6">
+      <header class="bg-slate-900 rounded-2xl border border-slate-800 p-5 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 id="pHdrName" class="text-lg font-extrabold"></h2>
-          <p id="pHdrInfo" class="text-xs text-slate-400"></p>
+          <div class="flex items-center gap-2">
+            <h2 id="headerProviderName" class="text-xl font-extrabold text-white">--</h2>
+            <span id="headerProviderRoleBadge" class="text-xs font-extrabold px-3 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">--</span>
+          </div>
+          <p id="headerProviderPhone" class="text-xs text-slate-400 mt-1">📞 --</p>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <button id="xlsxBtn" type="button" class="bg-emerald-600 text-white font-bold text-xs px-3.5 py-2 rounded-xl">📊 تصدير Excel</button>
-          <button id="pEditBtn" type="button" class="bg-slate-800 text-amber-300 font-bold text-xs px-3 py-2 rounded-xl">✏️ تعديل</button>
-          <button id="pLogoutBtn" type="button" class="bg-rose-950 text-rose-300 font-bold text-xs px-3 py-2 rounded-xl">🚪 خروج</button>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="exportExcelBtn" type="button" class="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-4 py-2 rounded-xl">📊 استدعاء الحالات في شيت Excel</button>
+          <button id="editProviderBtn" type="button" class="bg-slate-800 text-amber-300 border border-slate-700 font-bold text-xs px-3.5 py-2 rounded-xl">✏️ تعديل</button>
+          <button id="logoutProviderBtn" type="button" class="bg-rose-950 text-rose-300 border border-rose-800 font-bold text-xs px-3.5 py-2 rounded-xl">🚪 خروج / مسح</button>
         </div>
       </header>
 
+      <!-- الطلبات الجديدة الواردة -->
       <div class="space-y-3">
-        <div class="flex justify-between items-center">
-          <h3 class="font-extrabold text-base">🚨 الطلبات الواردة لقسمك (<span id="incCount">0</span>)</h3>
-          <button id="muteNowBtn" type="button" class="hidden bg-white text-rose-700 font-extrabold text-xs px-3 py-1 rounded-lg">🔇 كتم الصوت الحالي</button>
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-extrabold text-white">🚨 الطلبات الواردة لقسمك (<span id="incomingCountBadge">0</span>)</h3>
+          <button id="stopCurrentSirenBtn" type="button" class="hidden bg-white text-rose-700 font-extrabold text-xs px-3.5 py-1.5 rounded-xl">🔇 كتم الإنذار الحالي</button>
         </div>
-        <div id="incBox" class="space-y-3"></div>
+        <div id="incomingAlertsContainer" class="space-y-4"></div>
       </div>
 
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-        <h3 class="font-extrabold text-base border-b border-slate-800 pb-2">🛠️ المهام المقبولة والجاري العمل عليها</h3>
-        <div id="actBox" class="space-y-3"></div>
+      <!-- الطلبات المقبولة والجاري إصلاحها -->
+      <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 space-y-4">
+        <h3 class="text-lg font-extrabold text-white border-b border-slate-800 pb-3">🛠️ تفاصيل الطلبات المقبولة (<span id="activeTasksCountBadge">0</span>)</h3>
+        <div id="activeTasksContainer" class="space-y-4"></div>
       </div>
 
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-        <h3 class="font-extrabold text-base border-b border-slate-800 pb-2">✅ سجل الحالات المحلولة</h3>
+      <!-- سجل الحالات المحلولة -->
+      <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 space-y-4">
+        <h3 class="text-lg font-extrabold text-white border-b border-slate-800 pb-3">✅ سجل الحالات المكتملة بالرقم المرجعي</h3>
         <div class="overflow-x-auto">
           <table class="w-full text-right text-xs">
-            <thead class="bg-slate-800 text-slate-300"><tr><th class="p-2">المرجع</th><th class="p-2">الكود</th><th class="p-2">العميل</th><th class="p-2">المشكلة</th><th class="p-2">ما تم عمله</th><th class="p-2">التقييم والتعليق</th></tr></thead>
-            <tbody id="doneBody" class="divide-y divide-slate-800"></tbody>
+            <thead class="bg-slate-800 text-slate-300 font-extrabold">
+              <tr>
+                <th class="p-3">الرقم المرجعي</th>
+                <th class="p-3">الكود</th>
+                <th class="p-3">المكان والعميل</th>
+                <th class="p-3">المشكلة والمعدة</th>
+                <th class="p-3">ما تم عمله لحل المشكلة</th>
+                <th class="p-3">التقييم</th>
+              </tr>
+            </thead>
+            <tbody id="completedTableBody" class="divide-y divide-slate-800 text-slate-200"></tbody>
           </table>
         </div>
       </div>
     </section>
   </div>
 
+  <div id="toastBox" class="fixed bottom-5 left-5 right-5 sm:left-auto sm:right-6 sm:w-96 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl hidden items-center justify-between z-50">
+    <span id="toastMessage" class="text-sm font-extrabold"></span>
+  </div>
+
   <script>
-    const DB_URL = "https://smartlinealert-default-rtdb.asia-southeast1.firebasedatabase.app/";
-    const ROOM = "smartline_main";
-    const KEY = "smartline_provider_v3";
+    const FIREBASE_DB_URL = "https://smartlinealert-default-rtdb.asia-southeast1.firebasedatabase.app/";
+    const ROOM_KEY = "smartline_main";
+    const PROVIDER_PROFILE_KEY = "smartline_provider_profile_v2";
+    const ALARM_DURATION_MS = 60000; // 60 ثانية (دقيقة واحدة) ثم يصبح صامتاً
 
-    // توليد ملف WAV صوتي للإنذار يعمل داخل <audio> حتى في الخلفية
-    function buildSirenWavDataUri() {
-      const sampleRate = 8000, seconds = 1, numSamples = sampleRate * seconds;
-      const buf = new ArrayBuffer(44 + numSamples * 2), view = new DataView(buf);
-      const writeStr = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
-      writeStr(0, 'RIFF'); view.setUint32(4, 36 + numSamples * 2, true); writeStr(8, 'WAVEfmt ');
-      view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
-      view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true);
-      view.setUint16(32, 2, true); view.setUint16(34, 16, true); writeStr(36, 'data');
-      view.setUint32(40, numSamples * 2, true);
-      for (let i = 0; i < numSamples; i++) {
-        const freq = i < numSamples / 2 ? 920 : 1360;
-        const val = Math.sin(2 * Math.PI * freq * (i / sampleRate));
-        view.setInt16(44 + i * 2, val * 22000, true);
+    const Storage = {
+      get(k, f) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch (e) { return f; } },
+      set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+      remove(k) { try { localStorage.removeItem(k); } catch (e) {} }
+    };
+
+    let providerProfile = Storage.get(PROVIDER_PROFILE_KEY, null);
+    let sharedState = { tickets: {}, providers: {} };
+    let firebaseRootRef = null;
+    let audioCtx = null;
+    let sirenInterval = null;
+    let isMuted = false;
+    let manuallySilencedIds = new Set();
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
       }
-      let bin = ''; const bytes = new Uint8Array(buf);
-      for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
-      return 'data:audio/wav;base64,' + btoa(bin);
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
     }
 
-    const bgAudio = document.getElementById('bgAlarmAudio');
-    bgAudio.src = buildSirenWavDataUri();
-
-    let deferredPrompt = null;
-    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
-
-    async function enableBackgroundCapabilities() {
-      try { bgAudio.play().then(() => { bgAudio.pause(); bgAudio.currentTime = 0; }).catch(()=>{}); } catch(e){}
-      if ('Notification' in window && Notification.permission !== 'granted') {
-        await Notification.requestPermission();
-      }
-      if ('wakeLock' in navigator) {
-        try { await navigator.wakeLock.request('screen'); } catch(e){}
-      }
-      document.getElementById('enableBgAlertBtn').textContent = '✅ إنذار الخلفية والإشعارات مفعل';
+    function playSirenBurst() {
+      if (isMuted) return;
+      try {
+        ensureAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.linearRampToValueAtTime(1320, now + 0.28);
+        osc.frequency.linearRampToValueAtTime(880, now + 0.56);
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.exponentialRampToValueAtTime(0.35, now + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.58);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.6);
+      } catch (e) {}
     }
 
-    let profile = JSON.parse(localStorage.getItem(KEY) || 'null');
-    let tickets = {};
-    let silenced = new Set();
-    let notifiedTicketIds = new Set();
-
-    const app = !firebase.apps.length ? firebase.initializeApp({ databaseURL: DB_URL }) : firebase.app();
-    const rootRef = firebase.database(app).ref('smartline_system/' + ROOM);
-
-    function logEvent(type, summary) {
-      const id = 'ev_' + Date.now();
-      rootRef.child('events/' + id).set({ id, timestamp: Date.now(), timeStr: new Date().toLocaleString('ar-EG'), type, summary });
+    function startAlarm() {
+      document.getElementById('stopCurrentSirenBtn').classList.remove('hidden');
+      if (sirenInterval) return;
+      playSirenBurst();
+      sirenInterval = setInterval(playSirenBurst, 750);
     }
 
-    function isRinging(t) {
-      if (t.status !== 'pending' || silenced.has(t.id)) return false;
-      return Date.now() < (t.alarmExpiresAt || ((t.timestamp || Date.now()) + 60000));
+    function stopAlarm() {
+      if (sirenInterval) { clearInterval(sirenInterval); sirenInterval = null; }
+      document.getElementById('stopCurrentSirenBtn').classList.add('hidden');
     }
 
-    function sendSystemNotification(t) {
-      if (notifiedTicketIds.has(t.id)) return;
-      notifiedTicketIds.add(t.id);
-      if ('vibrate' in navigator) navigator.vibrate([500, 200, 500, 200, 500]);
-      if ('Notification' in window && Notification.permission === 'granted') {
-        try {
-          new Notification(`🚨 عطل جديد (${t.targetDept}) - ${t.ticketCode}`, {
-            body: `المكان: ${t.clientLine} | العميل: ${t.clientName} | المشكلة: ${t.title} (${t.machine})`,
-            requireInteraction: true
-          });
-        } catch (e) {}
-      }
+    function showToast(msg) {
+      const box = document.getElementById('toastBox');
+      document.getElementById('toastMessage').textContent = msg;
+      box.classList.remove('hidden'); box.classList.add('flex');
+      setTimeout(() => { box.classList.add('hidden'); box.classList.remove('flex'); }, 3500);
     }
 
-    rootRef.child('tickets').on('value', (s) => {
-      tickets = s.val() || {};
-      document.getElementById('connStatus').textContent = '🟢 متصل ';
-      renderProvider();
-    });
+    function pushCloudEvent(type, summary) {
+      if (!firebaseRootRef) return;
+      const evId = 'ev_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      firebaseRootRef.child('events/' + evId).set({
+        id: evId, timestamp: Date.now(), timeStr: new Date().toLocaleString('ar-EG'), type, summary
+      });
+    }
 
-    setInterval(() => {
-      if (!profile) return;
-      const pend = Object.values(tickets).filter(t => t.targetDept === profile.specialty && t.status === 'pending');
-      pend.forEach(t => sendSystemNotification(t));
-      const anyActiveAlarm = pend.some(t => isRinging(t));
-      if (anyActiveAlarm) {
-        document.getElementById('muteNowBtn').classList.remove('hidden');
-        if (bgAudio.paused) bgAudio.play().catch(()=>{});
+    function isTicketRinging(t) {
+      if (t.status !== 'pending' || manuallySilencedIds.has(t.id)) return false;
+      const exp = t.alarmExpiresAt || ((t.timestamp || Date.now()) + ALARM_DURATION_MS);
+      return Date.now() < exp;
+    }
+
+    function getRemainingSec(t) {
+      const exp = t.alarmExpiresAt || ((t.timestamp || Date.now()) + ALARM_DURATION_MS);
+      return Math.max(0, Math.ceil((exp - Date.now()) / 1000));
+    }
+
+    function initFirebase() {
+      const app = !firebase.apps.length ? firebase.initializeApp({ databaseURL: FIREBASE_DB_URL }) : firebase.app();
+      firebaseRootRef = firebase.database(app).ref('smartline_system/' + ROOM_KEY);
+
+      firebaseRootRef.on('value', (snap) => {
+        const val = snap.val() || {};
+        sharedState = { tickets: val.tickets || {}, providers: val.providers || {} };
+        evaluateAndRender();
+        document.getElementById('connStatusText').textContent = 'متصل سحابياً بشكل مباشر بـ Firebase';
+      });
+
+      setInterval(() => {
+        if (!providerProfile) return;
+        const pendingDept = Object.values(sharedState.tickets || {}).filter(
+          t => t.targetDept === providerProfile.specialty && t.status === 'pending'
+        );
+        if (pendingDept.some(t => isTicketRinging(t))) startAlarm(); else stopAlarm();
+        pendingDept.forEach(t => {
+          const b = document.getElementById(`timer_${t.id}`);
+          const c = document.getElementById(`card_${t.id}`);
+          const ringing = isTicketRinging(t);
+          if (b) b.textContent = ringing ? `🔊 يرن (${getRemainingSec(t)} ثانية للصامت)` : '🔕 وضع صامت (انتهت الدقيقة)';
+          if (c) c.className = ringing ? 'neon-alert-card rounded-2xl p-5 text-slate-950 shadow-2xl' : 'rounded-2xl p-5 bg-amber-400 text-slate-950 border-4 border-amber-200 shadow-xl';
+        });
+      }, 1000);
+    }
+
+    function updateProviderView(isEditing = false) {
+      const regSec = document.getElementById('providerRegSection');
+      const dashSec = document.getElementById('providerDashboardSection');
+      if (!providerProfile || isEditing) {
+        regSec.classList.remove('hidden'); dashSec.classList.add('hidden');
+        stopAlarm();
       } else {
-        document.getElementById('muteNowBtn').classList.add('hidden');
-        if (!bgAudio.paused) { bgAudio.pause(); bgAudio.currentTime = 0; }
+        regSec.classList.add('hidden'); dashSec.classList.remove('hidden');
+        document.getElementById('headerProviderName').textContent = providerProfile.name;
+        document.getElementById('headerProviderPhone').textContent = '📞 ' + providerProfile.phone;
+        document.getElementById('headerProviderRoleBadge').textContent = `مختص ${providerProfile.specialty} فقط`;
+        evaluateAndRender();
       }
-      pend.forEach(t => {
-        const el = document.getElementById('rem_' + t.id);
-        if (el) {
-          const rem = Math.max(0, Math.ceil(((t.alarmExpiresAt || (t.timestamp + 60000)) - Date.now()) / 1000));
-          el.textContent = rem > 0 && !silenced.has(t.id) ? `🔊 يرن (${rem} ثانية للصامت)` : '🔕 صامت (انتهت الدقيقة)';
+    }
+
+    function evaluateAndRender() {
+      if (!providerProfile) return;
+      // فلترة صارمة حسب تخصص مقدم الخدمة (Tooling أو Process)
+      const deptTickets = Object.values(sharedState.tickets || {})
+        .filter(t => t.targetDept === providerProfile.specialty)
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+      // الطلبات المعلقة (تختفي تلقائياً من عند الجميع فور تحول حالتها إلى open)
+      const pending = deptTickets.filter(t => t.status === 'pending');
+      const active = deptTickets.filter(t => (t.status === 'open' || t.status === 'in_progress') && t.providerName === providerProfile.name);
+      const completed = deptTickets.filter(t => t.status === 'resolved');
+
+      if (pending.some(t => isTicketRinging(t))) startAlarm(); else stopAlarm();
+
+      document.getElementById('incomingCountBadge').textContent = pending.length;
+      const incEl = document.getElementById('incomingAlertsContainer');
+      if (pending.length === 0) {
+        incEl.innerHTML = `<div class="p-6 text-center text-slate-400 bg-slate-900 rounded-2xl border border-slate-800">لا توجد طلبات جديدة معلقة حالياً لقسم ${providerProfile.specialty}</div>`;
+      } else {
+        incEl.innerHTML = pending.map(t => {
+          const ringing = isTicketRinging(t);
+          return `
+            <div id="card_${t.id}" class="${ringing ? 'neon-alert-card' : 'bg-amber-400 border-4 border-amber-200'} rounded-2xl p-5 text-slate-950 shadow-2xl">
+              <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div class="space-y-2">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="bg-slate-950 text-yellow-300 font-mono font-black text-xs px-3 py-1 rounded-lg">🚨 ${t.ticketCode} (${t.targetDept})</span>
+                    <span id="timer_${t.id}" class="bg-rose-700 text-white text-xs font-extrabold px-3 py-1 rounded-lg">${ringing ? `🔊 يرن (${getRemainingSec(t)} ثانية للصامت)` : '🔕 وضع صامت (انتهت الدقيقة)'}</span>
+                  </div>
+                  <div class="bg-slate-950 text-white px-3.5 py-2 rounded-xl text-sm font-black">📍 المكان: ${t.clientLine} — ${t.clientDept} — ${t.clientFactory}</div>
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                    <div class="bg-white/95 p-2.5 rounded-xl">👤 العميل: <strong class="block text-sm">${t.clientName}</strong></div>
+                    <div class="bg-white/95 p-2.5 rounded-xl">⚠️ الشكوى: <strong class="block text-sm text-rose-700">${t.title}</strong></div>
+                    <div class="bg-white/95 p-2.5 rounded-xl">⚙️ المعدة: <strong class="block text-sm">${t.machine}</strong></div>
+                  </div>
+                </div>
+                <div class="flex gap-3 shrink-0">
+                  <button type="button" data-action="accept" data-id="${t.id}" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-6 py-3.5 rounded-xl border-2 border-white shadow-xl">✅ اقبل</button>
+                  <button type="button" data-action="reject" data-id="${t.id}" class="bg-slate-950 hover:bg-rose-950 text-white font-extrabold px-5 py-3.5 rounded-xl">❌ ارفض</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      document.getElementById('activeTasksCountBadge').textContent = active.length;
+      const actEl = document.getElementById('activeTasksContainer');
+      actEl.innerHTML = active.length === 0
+        ? `<div class="text-center py-6 text-slate-500 text-sm">لا توجد مهام قيد العمل حالياً</div>`
+        : active.map(t => `
+          <div class="bg-slate-800 rounded-2xl p-5 border border-slate-700 space-y-3">
+            <div class="flex justify-between border-b border-slate-700 pb-2">
+              <span class="bg-amber-400 text-slate-950 font-mono font-black text-xs px-3 py-1 rounded">${t.ticketCode}</span>
+              <span class="text-xs font-extrabold text-emerald-400">${t.status === 'in_progress' ? '🔧 جاري العمل عليها' : '📂 مفتوحة'}</span>
+            </div>
+            <p class="text-xs text-slate-200"><strong>📍 المكان:</strong> ${t.clientLine} | ${t.clientDept} | ${t.clientFactory} — <strong>👤 العميل:</strong> ${t.clientName} (📞 ${t.clientPhone})</p>
+            <p class="text-xs text-amber-300 font-bold">⚠️ المشكلة: ${t.title} | ⚙️ المعدة: ${t.machine}</p>
+            <p class="text-xs bg-slate-900 p-2.5 rounded-xl text-slate-300">الوصف: ${t.description}</p>
+            <div class="space-y-2 pt-2">
+              <label class="block text-xs font-extrabold text-emerald-400">🛠️ ما تم عمله لحل المشكلة:</label>
+              <textarea id="resNotes_${t.id}" rows="2" placeholder="اكتب ما تم عمله لحل المشكلة..." class="w-full rounded-xl bg-slate-900 border border-slate-600 text-white px-3 py-2 text-sm">${t.resolutionNotes || ''}</textarea>
+              <div class="flex gap-3 pt-1">
+                ${t.status !== 'in_progress' ? `<button type="button" data-action="start_repair" data-id="${t.id}" class="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs px-5 py-2.5 rounded-xl">▶️ بدء الإصلاح</button>` : ''}
+                <button type="button" data-action="complete_task" data-id="${t.id}" class="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-5 py-2.5 rounded-xl">✅ المهمة تمت</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+
+      const tbody = document.getElementById('completedTableBody');
+      tbody.innerHTML = completed.length === 0
+        ? `<tr><td colspan="6" class="text-center py-6 text-slate-500">لا توجد حالات مكتملة</td></tr>`
+        : completed.map(t => `
+          <tr>
+            <td class="p-3 font-mono font-bold text-emerald-400">${t.referenceNumber || '--'}</td>
+            <td class="p-3 font-mono text-amber-300">${t.ticketCode}</td>
+            <td class="p-3">${t.clientLine} (${t.clientName})</td>
+            <td class="p-3 font-bold">${t.title} (${t.machine})</td>
+            <td class="p-3 text-emerald-300">${t.resolutionNotes}</td>
+            <td class="p-3 text-amber-400 font-bold">${t.rating ? '★'.repeat(t.rating) + ` (${t.rating}/5)` : 'لم يقيم'}</td>
+          </tr>
+        `).join('');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initFirebase();
+      updateProviderView(false);
+      document.body.addEventListener('click', ensureAudio, { once: true });
+
+      document.getElementById('providerProfileForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const spec = document.querySelector('input[name="providerSpecialty"]:checked');
+        const phone = document.getElementById('providerPhone').value.trim().replace(/[.#$\[\]]/g, '_');
+        const name = document.getElementById('providerName').value.trim();
+        const specialty = spec ? spec.value : 'Tooling';
+        const pid = 'prov_' + phone;
+        providerProfile = { id: pid, name, phone, specialty, registeredAt: new Date().toLocaleString('ar-EG') };
+        Storage.set(PROVIDER_PROFILE_KEY, providerProfile);
+        firebaseRootRef.child('providers/' + pid).update(providerProfile);
+        pushCloudEvent('PROVIDER_REGISTERED', `سجّل مقدم الخدمة "${name}" بياناته في قسم (${specialty})`);
+        updateProviderView(false);
+      });
+
+      document.getElementById('editProviderBtn').addEventListener('click', () => updateProviderView(true));
+      document.getElementById('logoutProviderBtn').addEventListener('click', () => {
+        Storage.remove(PROVIDER_PROFILE_KEY); providerProfile = null; updateProviderView(false);
+      });
+
+      document.getElementById('testSirenBtn').addEventListener('click', () => { isMuted = false; playSirenBurst(); });
+      document.getElementById('muteAlarmBtn').addEventListener('click', () => {
+        isMuted = !isMuted;
+        if (isMuted) stopAlarm();
+      });
+      document.getElementById('stopCurrentSirenBtn').addEventListener('click', () => {
+        Object.values(sharedState.tickets || {}).forEach(t => { if (t.status === 'pending') manuallySilencedIds.add(t.id); });
+        stopAlarm();
+      });
+
+      document.getElementById('incomingAlertsContainer').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn || !providerProfile) return;
+        const id = btn.getAttribute('data-id');
+        const act = btn.getAttribute('data-action');
+        const t = sharedState.tickets[id];
+        if (!t) return;
+
+        if (act === 'accept') {
+          if (t.status !== 'pending') { showToast('⚠️ تم قبول الطلب بالفعل بواسطة زميل آخر'); return; }
+          firebaseRootRef.child('tickets/' + id).update({
+            status: 'open', statusLabel: 'مفتوحة',
+            providerId: providerProfile.id, providerName: providerProfile.name, providerPhone: providerProfile.phone,
+            acceptedAt: new Date().toLocaleString('ar-EG')
+          });
+          pushCloudEvent('TICKET_ACCEPTED', `قبل الفني "${providerProfile.name}" الطلب (${t.ticketCode}) واختفى من عند باقي مقدمي الخدمة`);
+          showToast(`✅ تم قبول الطلب (${t.ticketCode})`);
+        } else if (act === 'reject') {
+          firebaseRootRef.child('tickets/' + id).update({
+            status: 'rejected', statusLabel: 'تم رفض الطلب',
+            providerId: providerProfile.id, providerName: providerProfile.name, providerPhone: providerProfile.phone
+          });
+          pushCloudEvent('TICKET_REJECTED', `رفض الفني "${providerProfile.name}" الطلب (${t.ticketCode})`);
+          showToast(`❌ تم رفض الطلب (${t.ticketCode})`);
         }
       });
-    }, 1000);
 
-    function showProviderView(edit = false) {
-      if (!profile || edit) {
-        pRegSec.classList.remove('hidden'); pMainSec.classList.add('hidden');
-      } else {
-        pRegSec.classList.add('hidden'); pMainSec.classList.remove('hidden');
-        pHdrName.textContent = `👷 ${profile.name} — مختص ${profile.specialty}`;
-        pHdrInfo.textContent = `📞 ${profile.phone}`;
-        renderProvider();
-      }
-    }
+      document.getElementById('activeTasksContainer').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-id');
+        const act = btn.getAttribute('data-action');
+        const t = sharedState.tickets[id];
+        if (!t) return;
 
-    function renderProvider() {
-      if (!profile) return;
-      const deptList = Object.values(tickets).filter(t => t.targetDept === profile.specialty).sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
-      const pend = deptList.filter(t => t.status === 'pending');
-      const act = deptList.filter(t => (t.status === 'open' || t.status === 'in_progress') && t.providerName === profile.name);
-      const done = deptList.filter(t => t.status === 'resolved');
+        if (act === 'start_repair') {
+          firebaseRootRef.child('tickets/' + id).update({ status: 'in_progress', statusLabel: 'جاري العمل عليها' });
+          pushCloudEvent('REPAIR_STARTED', `بدأ الفني "${providerProfile.name}" إصلاح الطلب (${t.ticketCode})`);
+        } else if (act === 'complete_task') {
+          const notes = document.getElementById(`resNotes_${id}`).value.trim();
+          if (!notes) { showToast('⚠️ اكتب ما تم عمله لحل المشكلة أولاً'); return; }
+          const refNum = `REF-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+          firebaseRootRef.child('tickets/' + id).update({
+            status: 'resolved', statusLabel: 'تم الحل', resolutionNotes: notes,
+            resolvedAt: new Date().toLocaleString('ar-EG'), referenceNumber: refNum
+          });
+          pushCloudEvent('TICKET_RESOLVED', `أنهى الفني "${providerProfile.name}" الطلب (${t.ticketCode}) برقم مرجعي (${refNum})`);
+          showToast(`🎉 تم الحل بالرقم المرجعي ${refNum}`);
+        }
+      });
 
-      incCount.textContent = pend.length;
-      incBox.innerHTML = !pend.length
-        ? `<div class="p-5 text-center text-slate-500 bg-slate-900 rounded-2xl border border-slate-800 text-xs">لا توجد طلبات معلقة لقسم ${profile.specialty}</div>`
-        : pend.map(t => `
-          <div class="${isRinging(t) ? 'neon-card' : 'bg-amber-400 border-2 border-white'} rounded-2xl p-4 text-slate-950 flex flex-col sm:flex-row justify-between gap-3">
-            <div class="space-y-1 text-xs">
-              <div class="flex gap-2 items-center">
-                <span class="bg-slate-950 text-yellow-300 font-mono font-black px-2.5 py-0.5 rounded">${t.ticketCode}</span>
-                <span id="rem_${t.id}" class="bg-rose-700 text-white font-bold px-2.5 py-0.5 rounded">🔊 يرن</span>
-              </div>
-              <p class="font-black text-sm">📍 المكان: ${t.clientLine} | ${t.clientDept} | ${t.clientFactory}</p>
-              <p class="font-bold">👤 العميل: ${t.clientName} — ⚠️ الشكوى: <span class="text-rose-800 font-black">${t.title}</span> — ⚙️ المعدة: ${t.machine}</p>
-            </div>
-            <div class="flex gap-2 items-center">
-              <button type="button" data-act="accept" data-id="${t.id}" class="bg-emerald-600 text-white font-black px-5 py-2.5 rounded-xl border-2 border-white">✅ اقبل</button>
-              <button type="button" data-act="reject" data-id="${t.id}" class="bg-slate-950 text-white font-bold px-4 py-2.5 rounded-xl">❌ ارفض</button>
-            </div>
-          </div>
-        `).join('');
-
-      actBox.innerHTML = !act.length
-        ? `<p class="text-center text-slate-500 text-xs py-4">لا توجد مهام جارية</p>`
-        : act.map(t => `
-          <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-2 text-xs">
-            <div class="flex justify-between font-bold"><span class="text-amber-300 font-mono">${t.ticketCode}</span><span>${t.statusLabel}</span></div>
-            <p>📍 ${t.clientLine} (${t.clientName} - 📞 ${t.clientPhone}) | ⚠️ ${t.title} (${t.machine})</p>
-            <p class="bg-slate-900 p-2 rounded">الوصف: ${t.description}</p>
-            <textarea id="res_${t.id}" rows="2" placeholder="ما تم عمله لحل المشكلة..." class="w-full rounded-xl bg-slate-900 border border-slate-600 p-2 text-white">${t.resolutionNotes || ''}</textarea>
-            <div class="flex gap-2">
-              ${t.status !== 'in_progress' ? `<button type="button" data-act="start" data-id="${t.id}" class="bg-indigo-600 text-white font-bold px-4 py-2 rounded-xl">▶️ بدء الإصلاح</button>` : ''}
-              <button type="button" data-act="done" data-id="${t.id}" class="bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl">✅ المهمة تمت</button>
-            </div>
-          </div>
-        `).join('');
-
-      doneBody.innerHTML = done.map(t => `
-        <tr>
-          <td class="p-2 font-mono text-emerald-400">${t.referenceNumber || ''}</td>
-          <td class="p-2 font-mono text-amber-300">${t.ticketCode}</td>
-          <td class="p-2">${t.clientName}</td>
-          <td class="p-2">${t.title}</td>
-          <td class="p-2 text-emerald-300">${t.resolutionNotes}</td>
-          <td class="p-2 text-amber-400 font-bold">${t.rating ? `★ (${t.rating}/5)` : ''} ${t.ratingComment ? `<span class="block text-slate-300 text-[11px]">💬 ${t.ratingComment}</span>` : ''}</td>
-        </tr>
-      `).join('');
-    }
-
-    pForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      enableBackgroundCapabilities();
-      const spec = document.querySelector('input[name="pSpec"]:checked').value;
-      const phone = pPhone.value.trim().replace(/[.#$\[\]]/g, '_');
-      profile = { id: 'prov_' + phone, name: pName.value.trim(), phone, specialty: spec, registeredAt: new Date().toLocaleString('ar-EG') };
-      localStorage.setItem(KEY, JSON.stringify(profile));
-      rootRef.child('providers/' + profile.id).update(profile);
-      logEvent('PROVIDER_REGISTERED', `سجّل الفني "${profile.name}" (${spec})`);
-      showProviderView(false);
+      document.getElementById('exportExcelBtn').addEventListener('click', () => {
+        const rows = Object.values(sharedState.tickets || {}).map(t => ({
+          'الرقم المرجعي': t.referenceNumber || '', 'الكود': t.ticketCode, 'القسم': t.targetDept,
+          'الحالة': t.statusLabel, 'العميل': t.clientName, 'المكان': `${t.clientLine} - ${t.clientFactory}`,
+          'المشكلة': t.title, 'المعدة': t.machine, 'الفني': t.providerName,
+          'ما تم عمله': t.resolutionNotes, 'التقييم': t.rating ? `${t.rating}/5` : 'لم يقيم'
+        }));
+        if (!rows.length) return;
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'الحالات');
+        XLSX.writeFile(wb, 'Maintenance_Cases.xlsx');
+      });
     });
-
-    document.getElementById('enableBgAlertBtn').addEventListener('click', enableBackgroundCapabilities);
-    document.getElementById('pEditBtn').addEventListener('click', () => showProviderView(true));
-    document.getElementById('pLogoutBtn').addEventListener('click', () => { localStorage.removeItem(KEY); profile = null; showProviderView(false); });
-    document.getElementById('muteNowBtn').addEventListener('click', () => {
-      Object.values(tickets).forEach(t => { if (t.status === 'pending') silenced.add(t.id); });
-      bgAudio.pause();
-    });
-
-    incBox.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-act]'); if (!b) return;
-      const id = b.getAttribute('data-id'), act = b.getAttribute('data-act'), t = tickets[id];
-      if (!t || t.status !== 'pending') return;
-      if (act === 'accept') {
-        rootRef.child('tickets/' + id).update({ status: 'open', statusLabel: 'مفتوحة', providerName: profile.name, providerPhone: profile.phone });
-        logEvent('ACCEPTED', `قبل "${profile.name}" الطلب (${t.ticketCode})`);
-      } else {
-        rootRef.child('tickets/' + id).update({ status: 'rejected', statusLabel: 'تم رفض الطلب', providerName: profile.name, providerPhone: profile.phone });
-        logEvent('REJECTED', `رفض "${profile.name}" الطلب (${t.ticketCode})`);
-      }
-    });
-
-    actBox.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-act]'); if (!b) return;
-      const id = b.getAttribute('data-id'), act = b.getAttribute('data-act'), t = tickets[id];
-      if (act === 'start') {
-        rootRef.child('tickets/' + id).update({ status: 'in_progress', statusLabel: 'جاري العمل عليها' });
-      } else if (act === 'done') {
-        const notes = document.getElementById('res_' + id).value.trim(); if (!notes) return;
-        const ref = 'REF-' + Math.floor(100000 + Math.random() * 900000);
-        rootRef.child('tickets/' + id).update({ status: 'resolved', statusLabel: 'تم الحل', resolutionNotes: notes, referenceNumber: ref, resolvedAt: new Date().toLocaleString('ar-EG') });
-        logEvent('RESOLVED', `أنهى "${profile.name}" الطلب (${t.ticketCode}) برقم (${ref})`);
-      }
-    });
-
-    document.getElementById('xlsxBtn').addEventListener('click', () => {
-      const rows = Object.values(tickets).map(t => ({
-        'المرجع': t.referenceNumber || '', 'الكود': t.ticketCode, 'القسم': t.targetDept, 'الحالة': t.statusLabel,
-        'العميل': t.clientName, 'المشكلة': t.title, 'المعدة': t.machine, 'الفني': t.providerName,
-        'ما تم عمله': t.resolutionNotes, 'التقييم': t.rating || '', 'تعليق العميل': t.ratingComment || ''
-      }));
-      if (!rows.length) return;
-      const ws = XLSX.utils.json_to_sheet(rows), wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'الحالات'); XLSX.writeFile(wb, 'Report.xlsx');
-    });
-
-    showProviderView(false);
   </script>
 </body>
 </html>
