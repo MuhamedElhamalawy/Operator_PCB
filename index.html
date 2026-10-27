@@ -23,8 +23,9 @@
 </head>
 <body class="min-h-screen pb-14">
 
-  <!-- مشغل صوت حقيقي يعمل حتى في الخلفية -->
+  <!-- مشغل صوت الإنذار الرئيسي + مشغل نبضة الخلفية المستمرة لمنع توقف المتصفح عند غلق الشاشة -->
   <audio id="bgAlarmAudio" loop preload="auto"></audio>
+  <audio id="keepAliveAudio" loop preload="auto"></audio>
 
   <div class="bg-slate-950 border-b border-slate-800 text-xs py-2.5 px-4">
     <div class="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-2">
@@ -33,9 +34,9 @@
         <span id="connStatusText" class="font-bold text-slate-300">جاري محاولة الاتصال...</span>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <button id="enableBgBtn" type="button" class="bg-amber-500 text-slate-950 px-3 py-1 rounded-lg font-extrabold">🔔 تفعيل تنبيه الخلفية والشاشة</button>
+        <button id="enableBgBtn" type="button" class="bg-amber-500 text-slate-950 px-3 py-1 rounded-lg font-extrabold">🔔 تفعيل عمل الصوت في الخلفية وقفل الشاشة</button>
         <button id="installAppBtn" type="button" class="bg-emerald-600 text-white px-3 py-1 rounded-lg font-bold">📲 تثبيت التطبيق</button>
-        <button id="muteAlarmBtn" type="button" class="bg-slate-800 text-slate-200 border border-slate-700 px-3 py-1 rounded-lg font-bold">🔊 الصوت: مفعل (دقيقة ثم صامت)</button>
+        <button id="muteAlarmBtn" type="button" class="bg-slate-800 text-slate-200 border border-slate-700 px-3 py-1 rounded-lg font-bold">🔊 الصوت: مفعل</button>
       </div>
     </div>
   </div>
@@ -103,7 +104,7 @@
     <!-- الشاشة الرئيسية لمقدم الخدمة -->
     <section id="providerDashboardSection" class="hidden space-y-6">
       <div class="bg-emerald-900/50 border border-emerald-700 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-2 text-xs">
-        <span>📲 ضع أيقونة التطبيق على الشاشة الرئيسية وفعّل تنبيه الخلفية ليصلك الإنذار حتى لو الشاشة في الخلفية</span>
+        <span>📲 اضغط مرة واحدة على <strong>"تفعيل عمل الصوت في الخلفية"</strong> بالأعلى ليظل الرادار الصوتي يعمل حتى لو أغلقت شاشة الموبايل</span>
         <button id="bannerInstallBtn" type="button" class="bg-white text-slate-900 font-extrabold px-3.5 py-1.5 rounded-xl">➕ تثبيت التطبيق</button>
       </div>
 
@@ -122,10 +123,13 @@
         </div>
       </header>
 
-      <!-- الطلبات الجديدة الواردة -->
+      <!-- الطلبات الجديدة الواردة (تظهر لمدة دقيقة و10 ثوانٍ ثم تتحول لطلب مهمل) -->
       <div class="space-y-3">
         <div class="flex items-center justify-between">
-          <h3 class="text-lg font-extrabold text-white">🚨 الطلبات الواردة لقسمك (<span id="incomingCountBadge">0</span>)</h3>
+          <div>
+            <h3 class="text-lg font-extrabold text-white">🚨 الطلبات الواردة لقسمك (<span id="incomingCountBadge">0</span>)</h3>
+            <p class="text-[11px] text-slate-400">يظل الطلب متاحاً لمدة دقيقة و10 ثوانٍ (يرن أول 60 ثانية ثم يصمت 10 ثوانٍ) وبعدها يُسجل كطلب مهمل</p>
+          </div>
           <button id="stopCurrentSirenBtn" type="button" class="hidden bg-white text-rose-700 font-extrabold text-xs px-3.5 py-1.5 rounded-xl">🔇 كتم الإنذار الحالي</button>
         </div>
         <div id="incomingAlertsContainer" class="space-y-4"></div>
@@ -179,7 +183,9 @@
     const FIREBASE_DB_URL = "https://smartlinealert-default-rtdb.asia-southeast1.firebasedatabase.app/";
     const ROOM_KEY = "smartline_main";
     const PROVIDER_PROFILE_KEY = "smartline_provider_profile_v2";
-    const ALARM_DURATION_MS = 60000; // دقيقة واحدة ثم يصبح صامتاً
+    const SOUND_MUTE_PREF_KEY = "smartline_provider_mute_pref_v1";
+    const ALARM_DURATION_MS = 60000; // 60 ثانية صوت إنذار
+    const NEGLECT_TIMEOUT_MS = 70000; // 70 ثانية (دقيقة و10 ثوانٍ) ثم يتحول لطلب مهمل
 
     const manifest = {
       name: "تطبيق مقدم الخدمة - الصيانة",
@@ -206,8 +212,8 @@
       }
     }
 
-    // بناء موجة صوتية للإنذار تعمل داخل <audio> حتى عندما يكون التطبيق في الخلفية
-    function buildSirenWavDataUri() {
+    // بناء ملف WAV لصوت الإنذار + ملف WAV خفي لإبقاء التطبيق حياً في الخلفية وعند قفل الشاشة
+    function buildWavDataUri(isSilentKeepAlive = false) {
       const sampleRate = 8000, seconds = 1, numSamples = sampleRate * seconds;
       const buf = new ArrayBuffer(44 + numSamples * 2), view = new DataView(buf);
       const writeStr = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
@@ -217,9 +223,13 @@
       view.setUint16(32, 2, true); view.setUint16(34, 16, true); writeStr(36, 'data');
       view.setUint32(40, numSamples * 2, true);
       for (let i = 0; i < numSamples; i++) {
-        const freq = i < numSamples / 2 ? 900 : 1350;
-        const val = Math.sin(2 * Math.PI * freq * (i / sampleRate));
-        view.setInt16(44 + i * 2, val * 24000, true);
+        if (isSilentKeepAlive) {
+          view.setInt16(44 + i * 2, 1, true); // نبضة شبه صامتة تبقي قناة الصوت نشطة في الخلفية
+        } else {
+          const freq = i < numSamples / 2 ? 920 : 1380;
+          const val = Math.sin(2 * Math.PI * freq * (i / sampleRate));
+          view.setInt16(44 + i * 2, val * 25000, true);
+        }
       }
       let bin = ''; const bytes = new Uint8Array(buf);
       for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
@@ -227,7 +237,10 @@
     }
 
     const bgAudio = document.getElementById('bgAlarmAudio');
-    bgAudio.src = buildSirenWavDataUri();
+    const keepAliveAudio = document.getElementById('keepAliveAudio');
+    bgAudio.src = buildWavDataUri(false);
+    keepAliveAudio.src = buildWavDataUri(true);
+    keepAliveAudio.volume = 0.01;
 
     const Storage = {
       get(k, f) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch (e) { return f; } },
@@ -236,12 +249,22 @@
     };
 
     let providerProfile = Storage.get(PROVIDER_PROFILE_KEY, null);
+    // استرجاع ضبط الصوت المحفوظ (كتم أو تشغيل) من الذاكرة المحلية
+    let isMuted = Storage.get(SOUND_MUTE_PREF_KEY, false) === true;
     let sharedState = { tickets: {}, providers: {} };
     let firebaseRootRef = null;
-    let isMuted = false;
     let isEditingProvider = false;
     let manuallySilencedIds = new Set();
     let notifiedIds = new Set();
+
+    function updateMuteButtonUI() {
+      const btn = document.getElementById('muteAlarmBtn');
+      if (!btn) return;
+      btn.textContent = isMuted ? '🔇 الصوت: مكتوم (محفوظ)' : '🔊 الصوت: مفعل (محفوظ)';
+      btn.className = isMuted
+        ? 'bg-rose-900/60 text-rose-200 border border-rose-700 px-3 py-1 rounded-lg font-bold'
+        : 'bg-slate-800 text-emerald-300 border border-slate-700 px-3 py-1 rounded-lg font-bold';
+    }
 
     function normalizePhone(p) {
       return String(p || '').trim().replace(/\s+/g, '').replace(/[.#$\[\]]/g, '_');
@@ -249,25 +272,38 @@
 
     async function enableBackgroundAlert() {
       try {
+        // تشغيل قناة البقاء حياً في الخلفية حتى لا يغلق الموبايل الصوت عند قفل الشاشة
+        await keepAliveAudio.play();
         await bgAudio.play();
         bgAudio.pause();
         bgAudio.currentTime = 0;
       } catch (e) {}
+
+      if ('mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: 'رادار بلاغات الصيانة نشط',
+            artist: 'SmartLine Alert',
+            album: 'استقبال البلاغات في الخلفية'
+          });
+        } catch (e) {}
+      }
+
       if ('Notification' in window && Notification.permission !== 'granted') {
         try { await Notification.requestPermission(); } catch (e) {}
       }
       if ('wakeLock' in navigator) {
         try { await navigator.wakeLock.request('screen'); } catch (e) {}
       }
-      document.getElementById('enableBgBtn').textContent = '✅ تنبيه الخلفية مفعل';
-      showToast('✅ تم تفعيل الصوت والتنبيه في الخلفية');
+      document.getElementById('enableBgBtn').textContent = '✅ رادار الصوت في الخلفية نشط';
+      showToast('✅ تم تفعيل عمل الصوت والإشعارات في الخلفية وعند غلق الشاشة');
     }
 
     function triggerScreenNotification(t) {
       if (notifiedIds.has(t.id)) return;
       notifiedIds.add(t.id);
       if ('vibrate' in navigator) {
-        try { navigator.vibrate([500, 200, 500, 200, 600]); } catch (e) {}
+        try { navigator.vibrate([600, 200, 600, 200, 800]); } catch (e) {}
       }
       if ('Notification' in window && Notification.permission === 'granted') {
         try {
@@ -321,9 +357,32 @@
       return Date.now() < exp;
     }
 
-    function getRemainingSec(t) {
+    function getRemainingAlarmSec(t) {
       const exp = t.alarmExpiresAt || ((t.timestamp || Date.now()) + ALARM_DURATION_MS);
       return Math.max(0, Math.ceil((exp - Date.now()) / 1000));
+    }
+
+    function getRemainingNeglectSec(t) {
+      const exp = t.neglectedAt || ((t.timestamp || Date.now()) + NEGLECT_TIMEOUT_MS);
+      return Math.max(0, Math.ceil((exp - Date.now()) / 1000));
+    }
+
+    function checkAndMarkNeglectedTickets() {
+      if (!firebaseRootRef) return;
+      const now = Date.now();
+      Object.values(sharedState.tickets || {}).forEach(t => {
+        if (t.status === 'pending') {
+          const expireNeglect = t.neglectedAt || ((t.timestamp || now) + NEGLECT_TIMEOUT_MS);
+          if (now >= expireNeglect) {
+            firebaseRootRef.child('tickets/' + t.id).update({
+              status: 'neglected',
+              statusLabel: 'طلب مهمل',
+              neglectedTimeStr: new Date().toLocaleString('ar-EG')
+            });
+            pushCloudEvent('TICKET_NEGLECTED', `تحول الطلب (${t.ticketCode}) لقسم ${t.targetDept} إلى "طلب مهمل" لعدم القبول خلال دقيقة و10 ثوانٍ`);
+          }
+        }
+      });
     }
 
     function initConnection() {
@@ -353,6 +412,7 @@
       });
 
       setInterval(() => {
+        checkAndMarkNeglectedTickets();
         if (!providerProfile) return;
         const pendingDept = Object.values(sharedState.tickets || {}).filter(
           t => t.targetDept === providerProfile.specialty && t.status === 'pending' && !hasProviderRejected(t)
@@ -363,8 +423,18 @@
           const b = document.getElementById(`timer_${t.id}`);
           const c = document.getElementById(`card_${t.id}`);
           const ringing = isTicketRinging(t);
-          if (b) b.textContent = ringing ? `🔊 يرن (${getRemainingSec(t)} ثانية للصامت)` : '🔕 وضع صامت (انتهت الدقيقة)';
-          if (c) c.className = ringing ? 'neon-alert-card rounded-2xl p-5 text-slate-950 shadow-2xl' : 'rounded-2xl p-5 bg-amber-400 text-slate-950 border-4 border-amber-200 shadow-xl';
+          const remAlarm = getRemainingAlarmSec(t);
+          const remNeglect = getRemainingNeglectSec(t);
+          if (b) {
+            b.textContent = ringing
+              ? `🔊 يرن (${remAlarm} ث للصامت | باقي ${remNeglect} ث للإهمال)`
+              : `🔕 صامت (يتحول لطلب مهمل خلال ${remNeglect} ثانية)`;
+          }
+          if (c) {
+            c.className = ringing
+              ? 'neon-alert-card rounded-2xl p-5 text-slate-950 shadow-2xl'
+              : 'rounded-2xl p-5 bg-amber-400 text-slate-950 border-4 border-amber-200 shadow-xl';
+          }
         });
       }, 1000);
     }
@@ -431,7 +501,6 @@
         .filter(t => t.targetDept === providerProfile.specialty)
         .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-      // الطلب يظل مفتوحاً عند الباقين إذا رفضه هذا الفني، ويختفي من عند الجميع فقط عند القبول (status === 'open')
       const pending = deptTickets.filter(t => t.status === 'pending' && !hasProviderRejected(t));
       const active = deptTickets.filter(t => (t.status === 'open' || t.status === 'in_progress') && t.providerName === providerProfile.name);
       const completed = deptTickets.filter(t => t.status === 'resolved');
@@ -445,13 +514,17 @@
       } else {
         incEl.innerHTML = pending.map(t => {
           const ringing = isTicketRinging(t);
+          const remAlarm = getRemainingAlarmSec(t);
+          const remNeglect = getRemainingNeglectSec(t);
           return `
             <div id="card_${t.id}" class="${ringing ? 'neon-alert-card' : 'bg-amber-400 border-4 border-amber-200'} rounded-2xl p-5 text-slate-950 shadow-2xl">
               <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div class="space-y-2">
                   <div class="flex flex-wrap items-center gap-2">
                     <span class="bg-slate-950 text-yellow-300 font-mono font-black text-xs px-3 py-1 rounded-lg">🚨 ${t.ticketCode} (${t.targetDept})</span>
-                    <span id="timer_${t.id}" class="bg-rose-700 text-white text-xs font-extrabold px-3 py-1 rounded-lg">${ringing ? `🔊 يرن (${getRemainingSec(t)} ثانية للصامت)` : '🔕 وضع صامت (انتهت الدقيقة)'}</span>
+                    <span id="timer_${t.id}" class="bg-rose-700 text-white text-xs font-extrabold px-3 py-1 rounded-lg">
+                      ${ringing ? `🔊 يرن (${remAlarm} ث للصامت | باقي ${remNeglect} ث للإهمال)` : `🔕 صامت (يتحول لطلب مهمل خلال ${remNeglect} ثانية)`}
+                    </span>
                   </div>
                   <div class="bg-slate-950 text-white px-3.5 py-2 rounded-xl text-sm font-black">📍 المكان: ${t.clientLine} — ${t.clientDept} — ${t.clientFactory}</div>
                   <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
@@ -513,8 +586,14 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+      updateMuteButtonUI();
       initConnection();
       updateProviderView(false);
+
+      // تفعيل قناة الصوت في الخلفية تلقائياً مع أول لمسة للشاشة
+      document.body.addEventListener('click', () => {
+        keepAliveAudio.play().catch(() => {});
+      }, { once: true });
 
       document.getElementById('pTabRegBtn').addEventListener('click', () => setPAuthTab('register'));
       document.getElementById('pTabLogBtn').addEventListener('click', () => setPAuthTab('login'));
@@ -581,11 +660,14 @@
         showToast('تم تسجيل الخروج');
       });
 
+      // حفظ حالة كتم/تشغيل الصوت في الذاكرة المحلية
       document.getElementById('muteAlarmBtn').addEventListener('click', () => {
         isMuted = !isMuted;
-        document.getElementById('muteAlarmBtn').textContent = isMuted ? '🔇 الصوت: مكتوم' : '🔊 الصوت: مفعل (دقيقة ثم صامت)';
+        Storage.set(SOUND_MUTE_PREF_KEY, isMuted);
+        updateMuteButtonUI();
         if (isMuted) stopAlarm();
       });
+
       document.getElementById('stopCurrentSirenBtn').addEventListener('click', () => {
         Object.values(sharedState.tickets || {}).forEach(t => { if (t.status === 'pending') manuallySilencedIds.add(t.id); });
         stopAlarm();
@@ -600,7 +682,7 @@
         if (!t) return;
 
         if (act === 'accept') {
-          if (t.status !== 'pending') { showToast('⚠️ تم استلام الطلب بالفعل بواسطة زميل آخر'); return; }
+          if (t.status !== 'pending') { showToast('⚠️ لم يعد الطلب متاحاً'); return; }
           firebaseRootRef.child('tickets/' + id).update({
             status: 'open', statusLabel: 'مفتوحة',
             providerId: providerProfile.id, providerName: providerProfile.name, providerPhone: providerProfile.phone,
@@ -614,7 +696,6 @@
           pushCloudEvent('TICKET_ACCEPTED', `قبل الفني "${providerProfile.name}" الطلب (${t.ticketCode}) واختفى من عند الباقين`);
           showToast(`✅ تم استلام الطلب (${t.ticketCode})`);
         } else if (act === 'reject') {
-          // عند رفض أحد مقدمي الخدمة يظل الطلب مفتوحاً عند الباقين ولا يختفي إلا من عند الرافض فقط
           firebaseRootRef.child('tickets/' + id + '/rejectedBy/' + providerProfile.id).set({
             name: providerProfile.name,
             phone: providerProfile.phone,
