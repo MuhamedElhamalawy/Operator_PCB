@@ -40,7 +40,6 @@
       background: linear-gradient(135deg, #475569 0%, #1e293b 100%);
       border: 2px solid #94a3b8;
     }
-    /* Full Mobile Screen Modal Styling */
     .full-mobile-modal {
       position: fixed;
       inset: 0;
@@ -88,7 +87,7 @@
     <section id="authSection" class="bg-slate-900 rounded-2xl shadow-xl border border-slate-800 overflow-hidden">
       <div class="bg-slate-800 px-4 py-3 flex items-center justify-between">
         <h2 class="font-extrabold text-sm text-white">🔐 دخول / تسجيل مقدم الخدمة</h2>
-        <span class="text-[11px] text-emerald-400 font-bold">حساب محمي برقم الهاتف</span>
+        <span class="text-[11px] text-emerald-400 font-bold">حساب محمي برقم الهاتف والساب</span>
       </div>
 
       <div class="p-4 pb-0">
@@ -105,8 +104,8 @@
       <!-- Login Form -->
       <form id="loginForm" class="p-4 space-y-3.5">
         <div>
-          <label class="block text-xs font-bold text-slate-300 mb-1">رقم التليفون <span class="text-rose-400">*</span></label>
-          <input id="loginPhone" type="tel" required placeholder="01123456789" class="w-full rounded-xl bg-slate-800 border border-slate-700 text-white px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          <label class="block text-xs font-bold text-slate-300 mb-1">رقم التليفون أو رقم الساب (SAP) <span class="text-rose-400">*</span></label>
+          <input id="loginPhone" type="text" required placeholder="أدخل رقم التليفون أو رقم الساب" class="w-full rounded-xl bg-slate-800 border border-slate-700 text-white px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-300 mb-1">كلمة المرور (الباسورد) <span class="text-rose-400">*</span></label>
@@ -117,7 +116,7 @@
         </button>
       </form>
 
-      <!-- First-Time Registration Form -->
+      <!-- First-Time Registration Form (BLOCKS DUPLICATE PHONE OR SAP) -->
       <form id="registerForm" class="hidden p-4 space-y-3.5">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
@@ -125,13 +124,19 @@
             <input id="regName" type="text" required placeholder="مثال: م. كريم حسن" class="w-full rounded-xl bg-slate-800 border border-slate-700 text-white px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
           </div>
           <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1">رقم الساب (SAP - لا يتكرر) <span class="text-rose-400">*</span></label>
+            <input id="regSap" type="text" required placeholder="مثال: 205410" class="w-full rounded-xl bg-slate-800 border border-slate-700 text-white px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
             <label class="block text-xs font-bold text-slate-300 mb-1">رقم التليفون (لا يتكرر) <span class="text-rose-400">*</span></label>
             <input id="regPhone" type="tel" required placeholder="01123456789" class="w-full rounded-xl bg-slate-800 border border-slate-700 text-white px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
           </div>
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-300 mb-1">كلمة المرور (الباسورد) <span class="text-rose-400">*</span></label>
-          <input id="regPass" type="password" required placeholder="اختر كلمة مرور لحسابك" class="w-full rounded-xl bg-slate-800 border border-slate-700 text-white px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1">كلمة المرور (الباسورد) <span class="text-rose-400">*</span></label>
+            <input id="regPass" type="password" required placeholder="اختر كلمة مرور لحسابك" class="w-full rounded-xl bg-slate-800 border border-slate-700 text-white px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-300 mb-2">التخصص (يستقبل طلبات هذا القسم فقط) <span class="text-rose-400">*</span></label>
@@ -165,6 +170,7 @@
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <h2 id="pHeaderName" class="font-extrabold text-sm text-white">--</h2>
+              <span id="pHeaderSap" class="bg-slate-800 text-emerald-300 border border-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full">SAP: --</span>
               <span id="pHeaderSpec" class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full">--</span>
             </div>
             <p id="pHeaderPhone" class="text-xs text-slate-400 mt-0.5">📞 --</p>
@@ -235,12 +241,8 @@
     </section>
   </main>
 
-  <!-- ========================================================================= -->
-  <!-- UNIFIED FULL-SCREEN MOBILE POPUP MODAL (100vw x 100dvh)                   -->
-  <!-- Works for both NEW PENDING ALERTS & ACCEPTED ACTIVE JOBS                  -->
-  <!-- ========================================================================= -->
+  <!-- UNIFIED FULL-SCREEN MOBILE POPUP MODAL (100vw x 100dvh) -->
   <div id="fullScreenJobModal" class="full-mobile-modal hidden bg-slate-950 text-white">
-    <!-- Top Header of Full-Screen Modal -->
     <div id="fsModalHeader" class="px-4 py-3.5 flex items-center justify-between border-b border-white/15 shrink-0 bg-slate-900">
       <div class="flex items-center gap-2">
         <span id="fsStatusIcon" class="text-xl">🚨</span>
@@ -254,10 +256,7 @@
       </button>
     </div>
 
-    <!-- Scrollable Body of Full-Screen Modal (Fits Mobile Viewport) -->
-    <div id="fsModalBody" class="flex-1 overflow-y-auto p-4 flex flex-col justify-between space-y-4">
-      <!-- Populated dynamically via JS for either Pending Alert or Accepted Job Details -->
-    </div>
+    <div id="fsModalBody" class="flex-1 overflow-y-auto p-4 flex flex-col justify-between space-y-4"></div>
   </div>
 
   <!-- Install App Modal -->
@@ -281,9 +280,6 @@
   </div>
 
   <script>
-    // =========================================================================
-    // CONFIGURATION & PERSISTENT STATE
-    // =========================================================================
     const FIREBASE_DB_URL = "https://smartlinealert-default-rtdb.asia-southeast1.firebasedatabase.app/";
     const ROOM_KEY = "smartline_main";
     const BASE_REST_URL = `${FIREBASE_DB_URL.replace(/\/$/, '')}/smartline_system/${ROOM_KEY}`;
@@ -292,29 +288,22 @@
     const MUTE_PREF_KEY     = "smartline_provider_mute_pref_v1";
     const BG_RADAR_PREF_KEY = "smartline_provider_bg_radar_pref_v1";
 
-    // Timing constants: 60s loud alarm + 10s silent = 70s total before neglected
     const SOUND_DURATION_MS = 60000;
     const NEGLECT_TIMEOUT_MS = 70000;
 
     let currentProvider = null;
     let providersCache = {};
+    let clientsCache = {};
     let ticketsCache = {};
     let silencedTickets = {};
 
-    // Currently displayed ticket inside the Full-Screen Mobile Modal
     let currentModalTicketId = null;
-    // Track tickets that the provider manually minimized so we don't force-reopen them every second,
-    // UNLESS a brand new ticket arrives or the provider taps the card on the home screen
     let manuallyMinimizedTickets = {};
     let knownPendingIds = {};
 
-    // Load saved preferences from localStorage (never resets on app reopen)
     let isMuted = localStorage.getItem(MUTE_PREF_KEY) === 'true';
-    let bgRadarEnabled = localStorage.getItem(BG_RADAR_PREF_KEY) !== 'false'; // Default ON
+    let bgRadarEnabled = localStorage.getItem(BG_RADAR_PREF_KEY) !== 'false';
 
-    // =========================================================================
-    // UI HELPERS & CONNECTION STATUS (GENERIC USER-FRIENDLY MESSAGES)
-    // =========================================================================
     function setConnStatus(state) {
       const dot = document.getElementById('connDot');
       const txt = document.getElementById('connStatusText');
@@ -370,7 +359,6 @@
     let keepAliveAudioEl = null;
     let wakeLockSentinel = null;
 
-    // Request Screen/CPU WakeLock where supported
     async function requestWakeLock() {
       if ('wakeLock' in navigator && bgRadarEnabled) {
         try {
@@ -400,7 +388,6 @@
       view.setUint16(34, 16, true);
       writeString(36, 'data');
       view.setUint32(40, numSamples * 2, true);
-      // Imperceptible non-zero signal so mobile OS keeps audio session + network thread alive
       for (let i = 0; i < numSamples; i++) {
         view.setInt16(44 + i * 2, (i % 2 === 0) ? 1 : -1, true);
       }
@@ -516,6 +503,7 @@
     const db = firebase.database();
     const rootRef      = db.ref(`smartline_system/${ROOM_KEY}`);
     const providersRef = rootRef.child('providers');
+    const clientsRef   = rootRef.child('clients');
     const ticketsRef   = rootRef.child('tickets');
     const eventsRef    = rootRef.child('events');
 
@@ -544,6 +532,10 @@
       }
     });
 
+    clientsRef.on('value', (snap) => {
+      clientsCache = snap.val() || {};
+    });
+
     ticketsRef.on('value', (snap) => {
       ticketsCache = snap.val() || {};
       setConnStatus('online');
@@ -551,8 +543,6 @@
       renderProviderDashboard();
     });
 
-    // Dedicated Web Worker that directly fetches Firebase REST JSON inside the worker thread
-    // every 4 seconds so background tab throttling NEVER disconnects the app from the database
     function startDedicatedDatabaseWorker() {
       const workerScript = `
         const ticketsUrl = "${BASE_REST_URL}/tickets.json";
@@ -580,14 +570,12 @@
           if (ev.data.type === 'DB_SNAPSHOT') {
             ticketsCache = ev.data.tickets || {};
             setConnStatus('online');
-            // Also nudge Firebase WebSocket connection if it went idle
             try { firebase.database().goOnline(); } catch (e) {}
             checkAndMarkNeglectedTickets();
             renderProviderDashboard();
           }
         };
       } catch (e) {
-        // Fallback interval if Blob Worker is blocked
         setInterval(async () => {
           try {
             const res = await fetch(`${BASE_REST_URL}/tickets.json?t=${Date.now()}`, { cache: 'no-store' });
@@ -602,13 +590,11 @@
       }
     }
 
-    // Reconnect immediately when visibility changes or device wakes up
     document.addEventListener('visibilitychange', () => {
       try { firebase.database().goOnline(); } catch (e) {}
       if (bgRadarEnabled) applyBackgroundRadarState();
     });
 
-    // Automatically convert any pending ticket older than 70s (1m 10s) to 'neglected'
     function checkAndMarkNeglectedTickets() {
       const now = Date.now();
       Object.values(ticketsCache).forEach(t => {
@@ -623,7 +609,6 @@
             };
             ticketsCache[t.id] = Object.assign({}, t, updates);
             ticketsRef.child(t.id).update(updates);
-            // Also use REST PATCH so it commits even if WebSocket is asleep in background
             fetch(`${BASE_REST_URL}/tickets/${t.id}.json`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
@@ -669,7 +654,6 @@
 
       const t = ticketsCache[currentModalTicketId];
 
-      // Auto-close modal if ticket is resolved, neglected, or taken by another provider
       if (t.status === 'resolved' || t.status === 'neglected') {
         currentModalTicketId = null;
         modal.classList.add('hidden');
@@ -688,7 +672,6 @@
 
       modal.classList.remove('hidden');
 
-      // CASE 1: TICKET IS STILL PENDING (NEW INCOMING REQUEST)
       if (t.status === 'pending') {
         const now = Date.now();
         const elapsed = Math.max(0, now - (t.timestamp || now));
@@ -708,7 +691,6 @@
           : `إنذار صوتي نشط (${remainingSoundSec} ث) — متبقي ${remainingTotalSec} ثانية`;
         subEl.className = isSilentPhase ? 'text-[11px] text-amber-300 font-bold' : 'text-[11px] text-slate-900 font-black';
 
-        // Avoid re-rendering static structure if nothing changed except timer text
         const timerBadgeEl = document.getElementById('fsPendingTimerBadge');
         if (timerBadgeEl && bodyEl.getAttribute('data-rendered-mode') === `pending_${t.id}`) {
           timerBadgeEl.textContent = isSilentPhase
@@ -773,7 +755,6 @@
         return;
       }
 
-      // CASE 2: TICKET IS ACCEPTED ('open' OR 'in_progress') -> SHOW WORK DETAILS IN THE SAME FULL-SCREEN MODAL
       const isWorking = t.status === 'in_progress';
       header.className = isWorking
         ? 'px-4 py-3.5 flex items-center justify-between border-b border-indigo-500/40 shrink-0 bg-indigo-950'
@@ -785,7 +766,6 @@
       subEl.textContent = isWorking ? '⚡ الحالة الآن: جاري العمل على الإصلاح' : '✅ تم قبول الطلب — اضغط بدء الإصلاح عند الوصول للمعدة';
       subEl.className = 'text-[11px] text-emerald-300 font-bold';
 
-      // Preserve typed notes if user is currently typing in the full-screen textarea
       const existingNotesEl = document.getElementById(`fs_notes_${t.id}`);
       if (existingNotesEl && document.activeElement === existingNotesEl && bodyEl.getAttribute('data-rendered-mode') === `work_${t.id}_${t.status}`) {
         return;
@@ -795,7 +775,6 @@
       bodyEl.setAttribute('data-rendered-mode', `work_${t.id}_${t.status}`);
       bodyEl.innerHTML = `
         <div class="space-y-3.5">
-          <!-- Status Banner -->
           <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-900 border border-slate-700 p-3 rounded-2xl">
             <span class="text-xs font-extrabold ${isWorking ? 'text-indigo-300' : 'text-blue-300'}">
               ${isWorking ? '🔧 جاري الإصلاح حالياً بواسطة: ' + (t.providerName || '') : '📂 الطلب مفتوح ومُسجل باسمك'}
@@ -803,7 +782,6 @@
             <span class="text-[11px] text-slate-400">🕒 وقت البلاغ: ${t.createdAt}</span>
           </div>
 
-          <!-- Location & Client Contact -->
           <div class="bg-slate-900 border border-slate-700 rounded-2xl p-3.5 space-y-2">
             <div class="text-xs text-slate-400 font-bold">📍 الموقع وخط الإنتاج:</div>
             <div class="text-sm sm:text-base font-black text-amber-300">${t.clientLine} — ${t.clientDept} — ${t.clientFactory}</div>
@@ -815,7 +793,6 @@
             </div>
           </div>
 
-          <!-- Problem & Machine Details -->
           <div class="bg-slate-900 border border-slate-700 rounded-2xl p-3.5 space-y-2">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               <div><span class="text-slate-400 font-bold">⚠️ المشكلة:</span> <strong class="text-rose-400 text-sm">${t.title}</strong></div>
@@ -827,7 +804,6 @@
             </div>
           </div>
 
-          <!-- Step 1: Start Repair Button (if not started yet) -->
           ${!isWorking ? `
             <div class="bg-indigo-950/60 border-2 border-indigo-500/50 rounded-2xl p-3.5 text-center space-y-2">
               <p class="text-xs text-indigo-200 font-bold">عند وصولك للماكينة وبدء العمل الفعلي اضغط على الزر التالي لإشعار العميل:</p>
@@ -841,7 +817,6 @@
             </div>
           `}
 
-          <!-- Step 2: Resolution Notes Input -->
           <div class="bg-slate-900 border border-slate-700 rounded-2xl p-3.5 space-y-2">
             <label for="fs_notes_${t.id}" class="block text-xs sm:text-sm font-extrabold text-emerald-400">
               🛠️ ما تم عمله لحل المشكلة (مطلوب لإغلاق الشغلانة): <span class="text-rose-400">*</span>
@@ -850,7 +825,6 @@
           </div>
         </div>
 
-        <!-- Bottom Action Bar inside Full-Screen Modal -->
         <div class="pt-3 border-t border-slate-800 space-y-2 shrink-0">
           <button type="button" data-fs-action="complete" data-id="${t.id}" class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-base py-4 px-4 rounded-2xl shadow-xl border-2 border-emerald-300 transition">
             ✅ المهمة تمت (إنهاء وإغلاق الشاشة)
@@ -868,6 +842,7 @@
     function updateProviderHeader() {
       if (!currentProvider) return;
       document.getElementById('pHeaderName').textContent = currentProvider.name;
+      document.getElementById('pHeaderSap').textContent = 'SAP: ' + (currentProvider.sap || '--');
       document.getElementById('pHeaderPhone').textContent = '📞 ' + currentProvider.phone;
       const specEl = document.getElementById('pHeaderSpec');
       if (currentProvider.specialty === 'Tooling') {
@@ -898,12 +873,10 @@
       const myProvKey = 'prov_' + currentProvider.phone;
       const now = Date.now();
 
-      // Strictly filter by provider's specialty (Tooling or Process)
       const deptTickets = Object.values(ticketsCache)
         .filter(t => t && t.targetDept === currentProvider.specialty)
         .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-      // Pending tickets not rejected by this provider and within 70s window
       const pending = deptTickets.filter(t => {
         if (t.status !== 'pending') return false;
         if (t.rejectedBy && t.rejectedBy[myProvKey]) return false;
@@ -911,7 +884,6 @@
         return elapsed < NEGLECT_TIMEOUT_MS;
       });
 
-      // Active tickets (open or in_progress) assigned to this provider
       const active = deptTickets.filter(t =>
         (t.status === 'open' || t.status === 'in_progress') &&
         (!t.providerPhone || t.providerPhone === currentProvider.phone)
@@ -922,7 +894,6 @@
       document.getElementById('pendingCountBadge').textContent = pending.length;
       document.getElementById('activeCountBadge').textContent = active.length;
 
-      // Check for brand new pending tickets -> wake up & open full-screen modal automatically
       let shouldRingLoud = false;
       pending.forEach(t => {
         const elapsed = now - (t.timestamp || now);
@@ -932,7 +903,6 @@
         if (!knownPendingIds[t.id]) {
           knownPendingIds[t.id] = true;
           triggerSystemWakeUpNotification(t);
-          // Automatically pop open the full-screen modal for the new ticket
           currentModalTicketId = t.id;
           delete manuallyMinimizedTickets[t.id];
         }
@@ -944,7 +914,6 @@
         stopAlarmLoop();
       }
 
-      // If no modal ticket is currently selected, but there's an un-minimized pending ticket, show it full-screen
       if (!currentModalTicketId && pending.length > 0) {
         const unminimized = pending.find(t => !manuallyMinimizedTickets[t.id]);
         if (unminimized) {
@@ -952,12 +921,10 @@
         }
       }
 
-      // Refresh Full-Screen Modal if open
       if (currentModalTicketId) {
         renderFullScreenModal();
       }
 
-      // 1. Render Active / Open Tickets as Clickable Cards on Main Screen
       const actEl = document.getElementById('activeTicketsList');
       if (active.length === 0) {
         actEl.innerHTML = `<div class="text-center py-4 text-slate-500 text-xs">لا توجد طلبات مفتوحة حالياً</div>`;
@@ -988,7 +955,6 @@
         }).join('');
       }
 
-      // 2. Render Pending Tickets on Main Screen (Also Clickable to open Full-Screen Modal)
       const incEl = document.getElementById('incomingTicketsList');
       if (pending.length === 0) {
         incEl.innerHTML = `<div class="text-center py-5 text-slate-400 text-xs">🔔 لا توجد طلبات جديدة معلقة لقسم ${currentProvider.specialty}</div>`;
@@ -1015,7 +981,6 @@
         }).join('');
       }
 
-      // 3. Render Completed Archive Table
       const tbody = document.getElementById('completedTableBody');
       if (resolved.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-slate-500">لا توجد حالات مكتملة بعد</td></tr>`;
@@ -1064,7 +1029,6 @@
         ticketsRef.child(id).update(updates);
         logSystemEvent('قبول طلب صيانة', `قبل ${currentProvider.name} الطلب ${t.ticketCode}`);
         showToast(`✅ تم قبول الطلب (${t.ticketCode}) — تفاصيل الشغل مفتوحة أمامك الآن`);
-        // Keep currentModalTicketId = id so the Full-Screen Modal stays open and switches to Job Details!
         currentModalTicketId = id;
         renderFullScreenModal();
         renderProviderDashboard();
@@ -1121,7 +1085,6 @@
         logSystemEvent('إنهاء مهمة صيانة', `أنهى ${currentProvider.name} الطلب ${t.ticketCode} بمرجع ${refNum}`);
         showToast(`🎉 تم إنهاء الشغلانة وإغلاق الشاشة (${refNum})`);
 
-        // Automatically close the Full-Screen Modal upon job completion!
         currentModalTicketId = null;
         document.getElementById('fullScreenJobModal').classList.add('hidden');
         renderProviderDashboard();
@@ -1135,13 +1098,11 @@
       syncHeaderButtonsUI();
       startDedicatedDatabaseWorker();
 
-      // Restore provider session
       try {
         const saved = localStorage.getItem(LOCAL_SESSION_KEY);
         if (saved) currentProvider = JSON.parse(saved);
       } catch (e) {}
 
-      // Refresh countdown timers every 1 second
       setInterval(() => {
         if (currentProvider) {
           checkAndMarkNeglectedTickets();
@@ -1149,12 +1110,10 @@
         }
       }, 1000);
 
-      // Unlock audio / wake lock on first user tap
       document.body.addEventListener('click', () => {
         if (bgRadarEnabled) applyBackgroundRadarState();
       }, { once: true });
 
-      // Toggle Background Radar (persisted in localStorage)
       document.getElementById('bgKeepAliveBtn').addEventListener('click', () => {
         bgRadarEnabled = !bgRadarEnabled;
         localStorage.setItem(BG_RADAR_PREF_KEY, bgRadarEnabled ? 'true' : 'false');
@@ -1164,7 +1123,6 @@
           : '⚠️ تم إيقاف رادار الخلفية');
       });
 
-      // Toggle Sound Mute (persisted in localStorage)
       document.getElementById('toggleMuteBtn').addEventListener('click', () => {
         isMuted = !isMuted;
         localStorage.setItem(MUTE_PREF_KEY, isMuted ? 'true' : 'false');
@@ -1187,10 +1145,8 @@
         showToast('🔇 تم كتم صوت الطلب الحالي');
       });
 
-      // Full-Screen Modal Minimize Button
       document.getElementById('minimizeFsModalBtn').addEventListener('click', closeOrMinimizeFullScreenModal);
 
-      // Full-Screen Modal Action Buttons Delegation
       document.getElementById('fsModalBody').addEventListener('click', (e) => {
         const btn = e.target.closest('[data-fs-action]');
         if (!btn) return;
@@ -1203,7 +1159,6 @@
         }
       });
 
-      // Clicking any Active Card or Pending Card on the Home Screen opens the Full-Screen Modal
       document.getElementById('activeTicketsList').addEventListener('click', (e) => {
         const card = e.target.closest('[data-open-modal-id]');
         if (!card) return;
@@ -1236,25 +1191,29 @@
         formLogin.classList.add('hidden');
       });
 
-      // Login Submit
+      // Login Submit (Supports Phone or SAP)
       formLogin.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const phone = document.getElementById('loginPhone').value.trim();
+        const identifier = document.getElementById('loginPhone').value.trim();
         const pass = document.getElementById('loginPass').value.trim();
-        if (!phone || !pass) return;
+        if (!identifier || !pass) return;
 
-        const key = 'prov_' + phone;
-        const snap = await providersRef.child(key).get();
-        if (!snap.exists()) {
-          showToast('⚠️ رقم الهاتف غير مسجل، اختر "تسجيل جديد" أولاً');
+        const allProvSnap = await providersRef.get();
+        const allProviders = allProvSnap.val() || {};
+
+        const matchedProv = Object.values(allProviders).find(
+          p => p && (String(p.phone).trim() === identifier || (p.sap && String(p.sap).trim() === identifier))
+        );
+
+        if (!matchedProv) {
+          showToast('⚠️ هذا الحساب غير مسجل، اختر "تسجيل جديد" أولاً');
           return;
         }
-        const data = snap.val();
-        if (data.password !== pass) {
+        if (matchedProv.password !== pass) {
           showToast('❌ كلمة المرور غير صحيحة');
           return;
         }
-        currentProvider = data;
+        currentProvider = matchedProv;
         localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(currentProvider));
         applyBackgroundRadarState();
         logSystemEvent('دخول مقدم خدمة', `سجل ${currentProvider.name} الدخول`);
@@ -1262,26 +1221,46 @@
         showToast('✅ مرحباً بك ' + currentProvider.name);
       });
 
-      // Register Submit
+      // Register Submit (BLOCKS DUPLICATE PHONE OR SAP ACROSS PROVIDERS & CLIENTS)
       formReg.addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = document.getElementById('regName').value.trim();
+        const sap = document.getElementById('regSap').value.trim();
         const phone = document.getElementById('regPhone').value.trim();
         const pass = document.getElementById('regPass').value.trim();
         const specRadio = document.querySelector('input[name="regSpecialty"]:checked');
         const specialty = specRadio ? specRadio.value : 'Tooling';
 
-        if (!name || !phone || !pass) return;
-        const key = 'prov_' + phone;
-        const snap = await providersRef.child(key).get();
-        if (snap.exists()) {
-          showToast('⚠️ رقم الهاتف مسجل مسبقاً! استخدم "تسجيل دخول"');
+        if (!name || !sap || !phone || !pass) return;
+
+        const [providersSnap, clientsSnap] = await Promise.all([
+          providersRef.get(),
+          clientsRef.get()
+        ]);
+        const allProviders = providersSnap.val() || {};
+        const allClients = clientsSnap.val() || {};
+
+        // 1. Check if Phone is already registered in Providers or Clients
+        const phoneUsedInProviders = Object.values(allProviders).some(p => p && String(p.phone).trim() === phone);
+        const phoneUsedInClients = Object.values(allClients).some(c => c && String(c.phone).trim() === phone);
+        if (phoneUsedInProviders || phoneUsedInClients || allProviders['prov_' + phone] || allClients['client_' + phone]) {
+          showToast('⚠️ رقم التليفون مسجل مسبقاً! لا يمكن التسجيل بنفس الرقم مرتين');
           return;
         }
 
+        // 2. Check if SAP is already registered in Providers or Clients
+        const sapUsedInProviders = Object.values(allProviders).some(p => p && p.sap && String(p.sap).trim().toLowerCase() === sap.toLowerCase());
+        const sapUsedInClients = Object.values(allClients).some(c => c && c.sap && String(c.sap).trim().toLowerCase() === sap.toLowerCase());
+        if (sapUsedInProviders || sapUsedInClients) {
+          showToast('⚠️ رقم الساب (SAP) مسجل مسبقاً! لا يمكن التسجيل بنفس رقم الساب مرتين');
+          return;
+        }
+
+        const key = 'prov_' + phone;
         const newProv = {
           id: key,
           name,
+          sap,
           phone,
           password: pass,
           specialty,
@@ -1291,7 +1270,7 @@
         currentProvider = newProv;
         localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(currentProvider));
         applyBackgroundRadarState();
-        logSystemEvent('تسجيل مقدم خدمة جديد', `تم تسجيل ${name} في قسم ${specialty}`);
+        logSystemEvent('تسجيل مقدم خدمة جديد', `تم تسجيل ${name} (SAP: ${sap}) في قسم ${specialty}`);
         renderProviderDashboard();
         showToast('✅ تم إنشاء الحساب بنجاح');
       });
